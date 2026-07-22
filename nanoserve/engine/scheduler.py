@@ -10,26 +10,10 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from time import perf_counter
-from typing import Any, Protocol, Sequence
+from typing import Any, Literal, Sequence
 from uuid import uuid4
 
-
-class BatchBackend(Protocol):
-    """Tensor operations required by the scheduler."""
-
-    eos_token_ids: set[int]
-
-    def prefill_batch(
-        self, prompts: list[list[int]]
-    ) -> tuple[list[int], Any]: ...
-
-    def decode_batch(
-        self, token_ids: list[int], cache: Any
-    ) -> tuple[list[int], Any]: ...
-
-    def extend_batch_cache(self, active: Any, admitted: Any) -> Any: ...
-
-    def filter_batch_cache(self, cache: Any, indices: list[int]) -> Any: ...
+from nanoserve.backends.base import Backend
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +24,7 @@ class SchedulerEvent:
     token_id: int | None
     timestamp: float
     finished: bool
+    finish_reason: Literal["stop", "length"] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +51,7 @@ class _RequestState:
 class ContinuousBatchScheduler:
     """Admit queued work continuously and decode the active batch together."""
 
-    def __init__(self, backend: BatchBackend, *, max_batch_size: int = 8) -> None:
+    def __init__(self, backend: Backend, *, max_batch_size: int = 8) -> None:
         if max_batch_size < 1:
             raise ValueError("max_batch_size must be at least one")
         self.backend = backend
@@ -146,6 +131,10 @@ class ContinuousBatchScheduler:
                     )
                 self._active.extend(admitted)
 
+            # Return after the prefill forward so the server can dispatch each
+            # admitted request's first token before doing another decode pass.
+            return events
+
         if self._active:
             next_tokens, self._batch_cache = self.backend.decode_batch(
                 [request.token_ids[-1] for request in self._active],
@@ -185,11 +174,13 @@ class ContinuousBatchScheduler:
             token_id = int(token_id)
             if token_id in self.backend.eos_token_ids:
                 finished = True
+                finish_reason: Literal["stop", "length"] | None = "stop"
                 public_token: int | None = None
             else:
                 request.token_ids.append(token_id)
                 request.token_timestamps.append(timestamp)
                 finished = len(request.token_ids) >= request.max_tokens
+                finish_reason = "length" if finished else None
                 public_token = token_id
 
             events.append(
@@ -198,6 +189,7 @@ class ContinuousBatchScheduler:
                     token_id=public_token,
                     timestamp=timestamp,
                     finished=finished,
+                    finish_reason=finish_reason,
                 )
             )
             if finished:
@@ -217,4 +209,3 @@ class ContinuousBatchScheduler:
         else:
             cache = None
         return survivors, cache, events
-

@@ -37,15 +37,20 @@ def test_scheduler_batches_waiting_requests_up_to_capacity() -> None:
     events = scheduler.step(now=1.0)
 
     assert backend.prefill_batches == [[[10], [20]]]
-    assert backend.decode_batches == [[11, 21]]
+    assert backend.decode_batches == []
     assert [(event.request_id, event.token_id) for event in events] == [
         ("a", 11),
         ("b", 21),
+    ]
+    assert scheduler.pending_count == 1
+    assert scheduler.active_count == 2
+
+    completion_events = scheduler.step(now=1.5)
+    assert backend.decode_batches == [[11, 21]]
+    assert [(event.request_id, event.token_id) for event in completion_events] == [
         ("a", 12),
         ("b", 22),
     ]
-    assert scheduler.pending_count == 1
-    assert scheduler.active_count == 0
 
 
 def test_scheduler_admits_new_work_while_an_older_request_is_active() -> None:
@@ -58,13 +63,16 @@ def test_scheduler_admits_new_work_while_an_older_request_is_active() -> None:
     events = scheduler.step(now=2.0)
 
     assert backend.prefill_batches[-1] == [[100]]
-    assert backend.decode_batches[-1] == [3, 101]
-    assert [(event.request_id, event.token_id) for event in events] == [
-        ("new", 101),
-        ("older", 4),
+    assert backend.decode_batches == []
+    assert [(event.request_id, event.token_id) for event in events] == [("new", 101)]
+
+    decode_events = scheduler.step(now=3.0)
+    assert backend.decode_batches[-1] == [2, 101]
+    assert [(event.request_id, event.token_id) for event in decode_events] == [
+        ("older", 3),
         ("new", 102),
     ]
-    assert scheduler.active_count == 1
+    assert scheduler.active_count == 2
 
 
 def test_scheduler_records_completed_result_and_token_timestamps() -> None:
@@ -73,13 +81,15 @@ def test_scheduler_records_completed_result_and_token_timestamps() -> None:
     scheduler.submit([7], max_tokens=2, request_id="request", submitted_at=0.5)
 
     scheduler.step(now=1.25)
+    assert scheduler.pop_result("request") is None
+    scheduler.step(now=1.5)
     result = scheduler.pop_result("request")
 
     assert result is not None
     assert result.token_ids == (8, 9)
-    assert result.token_timestamps == (1.25, 1.25)
+    assert result.token_timestamps == (1.25, 1.5)
     assert result.submitted_at == 0.5
-    assert result.completed_at == 1.25
+    assert result.completed_at == 1.5
 
 
 def test_eos_finishes_without_exposing_the_stop_token() -> None:
@@ -92,9 +102,22 @@ def test_eos_finishes_without_exposing_the_stop_token() -> None:
     result = scheduler.pop_result("request")
 
     assert [(event.token_id, event.finished) for event in events] == [(None, True)]
+    assert events[0].finish_reason == "stop"
     assert result is not None
     assert result.token_ids == ()
     assert backend.decode_batches == []
+
+
+def test_token_limit_reports_length_finish_reason() -> None:
+    backend = FakeBatchBackend()
+    scheduler = ContinuousBatchScheduler(backend, max_batch_size=1)
+    scheduler.submit([7], max_tokens=1, request_id="request")
+
+    events = scheduler.step(now=1.0)
+
+    assert [(event.token_id, event.finished, event.finish_reason) for event in events] == [
+        (8, True, "length")
+    ]
 
 
 @pytest.mark.integration

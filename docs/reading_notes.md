@@ -66,9 +66,9 @@ shared entry. `clear()` is required after model reload. Unsupported adapters,
 multimodal inputs, and prompt embeddings are outside v1 rather than silently
 sharing an unsafe namespace.
 
-## Scheduler lessons retained
+## Scheduler source lessons and v1 boundary
 
-- Treat scheduling as a token-budget problem. Running requests consume one
+- Production schedulers treat scheduling as a token-budget problem. Running requests consume one
   decode token per step; waiting requests consume their remaining prefill
   tokens, bounded by request-count and token budgets.
 - Admit running work first to avoid inflating inter-token latency, then use
@@ -77,9 +77,9 @@ sharing an unsafe namespace.
   it; cancellation and failure must also release it.
 - Continuous batching means the active batch may change between forward passes.
   It does not mean concatenating unrelated histories into one logical cache.
-- When allocation cannot fit, vLLM preempts and recomputes. Nanoserve v1 uses a
-  bounded queue and explicit capacity rejection instead of pretending it has a
-  paged allocator.
+- When allocation cannot fit, vLLM preempts and recomputes. Nanoserve v1 has a
+  bounded active batch but an unbounded waiting deque; it has no token budget,
+  backpressure, or capacity rejection. Those remain required production work.
 
 ## MLX decode-loop lessons retained
 

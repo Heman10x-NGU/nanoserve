@@ -135,6 +135,10 @@ class MLXBackend:
             )
         return [int(token_id) for token_id in prompt]
 
+    def new_detokenizer(self) -> Any:
+        """Return independent streaming text state for one request."""
+        return self.tokenizer.detokenizer
+
     def forward_logits(
         self, token_ids: Sequence[int], cache: Sequence[Any] | None = None
     ) -> ForwardOutput:
@@ -170,11 +174,16 @@ class MLXBackend:
             return events
 
         collected = list(events)
-        token_ids = tuple(event.token_id for event in collected)
+        token_ids = tuple(
+            event.token_id for event in collected if event.token_id is not None
+        )
+        token_timestamps = tuple(
+            event.timestamp for event in collected if event.token_id is not None
+        )
         return GenerationResult(
-            text=self.tokenizer.decode(list(token_ids), skip_special_tokens=True),
+            text="".join(event.text for event in collected),
             token_ids=token_ids,
-            token_timestamps=tuple(event.timestamp for event in collected),
+            token_timestamps=token_timestamps,
             started_at=started_at,
             prompt_tokens=len(prompt_ids),
         )
@@ -192,7 +201,7 @@ class MLXBackend:
         logits = self._prefill(prompt_ids, cache)
         previous_token: int | None = None
 
-        for _ in range(max_tokens):
+        for token_index in range(max_tokens):
             if previous_token is not None:
                 logits = self.model(mx.array([[previous_token]]), cache=cache)
             next_token = mx.argmax(logits[:, -1, :], axis=-1)
@@ -203,13 +212,26 @@ class MLXBackend:
             token_id = int(next_token.item())
             timestamp = perf_counter()
             if token_id in eos_token_ids:
-                break
+                detokenizer.finalize()
+                final_text = detokenizer.last_segment
+                if final_text:
+                    yield TokenEvent(
+                        token_id=None,
+                        text=final_text,
+                        timestamp=timestamp,
+                        finished=True,
+                    )
+                return
 
             detokenizer.add_token(token_id)
+            finished = token_index + 1 == max_tokens
+            if finished:
+                detokenizer.finalize()
             yield TokenEvent(
                 token_id=token_id,
                 text=detokenizer.last_segment,
                 timestamp=timestamp,
+                finished=finished,
             )
             previous_token = token_id
 

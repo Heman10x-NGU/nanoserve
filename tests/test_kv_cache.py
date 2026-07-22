@@ -114,3 +114,23 @@ def test_prefix_reuse_token_identical() -> None:
     assert isinstance(cold, GenerationResult)
     assert isinstance(warm, GenerationResult)
     assert warm.token_ids == cold.token_ids
+
+
+@pytest.mark.integration
+def test_mlx_backend_stream_text_matches_completed_generation() -> None:
+    """Streaming flushes buffered tokenizer text at the token limit."""
+    from nanoserve.backends.base import Backend, DEFAULT_MODEL, GenerationResult
+    from nanoserve.backends.mlx_backend import MLXBackend
+
+    backend = MLXBackend.load(DEFAULT_MODEL)
+    assert isinstance(backend, Backend)
+    prompt = "The capital of France is"
+    streamed = list(backend.generate(prompt, stream=True, max_tokens=6))
+    completed = backend.generate(prompt, max_tokens=6)
+
+    assert isinstance(completed, GenerationResult)
+    assert tuple(event.token_id for event in streamed if event.token_id is not None) == (
+        completed.token_ids
+    )
+    assert "".join(event.text for event in streamed) == completed.text
+    assert streamed[-1].finished is True

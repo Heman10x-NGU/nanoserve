@@ -11,11 +11,12 @@ PREFILL_BLOCK_SIZE = 64
 
 @dataclass(frozen=True, slots=True)
 class TokenEvent:
-    """One evaluated output token from a streaming generation."""
+    """One evaluated output token, or final buffered text, from generation."""
 
-    token_id: int
+    token_id: int | None
     text: str
     timestamp: float
+    finished: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,9 +40,10 @@ class GenerationResult:
 
 @runtime_checkable
 class Backend(Protocol):
-    """Minimal interface shared by current and future device adapters."""
+    """Single interface required by generation, batching, and serving."""
 
     model_id: str
+    eos_token_ids: set[int]
 
     @classmethod
     def load(cls, model_id: str = DEFAULT_MODEL) -> "Backend": ...
@@ -49,6 +51,22 @@ class Backend(Protocol):
     def forward_logits(
         self, token_ids: Sequence[int], cache: Sequence[Any] | None = None
     ) -> ForwardOutput: ...
+
+    def encode(
+        self, prompt: str | Sequence[int], *, add_special_tokens: bool = True
+    ) -> list[int]: ...
+
+    def new_detokenizer(self) -> Any: ...
+
+    def prefill_batch(self, prompts: list[list[int]]) -> tuple[list[int], Any]: ...
+
+    def decode_batch(
+        self, token_ids: list[int], cache: Any
+    ) -> tuple[list[int], Any]: ...
+
+    def extend_batch_cache(self, active: Any, admitted: Any) -> Any: ...
+
+    def filter_batch_cache(self, cache: Any, indices: list[int]) -> Any: ...
 
     def generate(
         self,

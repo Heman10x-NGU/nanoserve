@@ -8,7 +8,7 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from nanoserve.engine.scheduler import ContinuousBatchScheduler, SchedulerEvent
 
 if TYPE_CHECKING:
-    from nanoserve.backends.mlx_backend import MLXBackend
+    from nanoserve.backends.base import Backend
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +28,7 @@ class StreamChunk:
     token_id: int | None
     text: str
     finished: bool
+    finish_reason: Literal["stop", "length"] | None = None
 
 
 class StreamEngine(Protocol):
@@ -48,12 +49,12 @@ class CompletionRequest(BaseModel):
 class ServingEngine:
     """Bridge synchronous Metal steps to per-request async token streams."""
 
-    def __init__(self, backend: "MLXBackend", *, max_batch_size: int = 8) -> None:
+    def __init__(self, backend: "Backend", *, max_batch_size: int = 8) -> None:
         self.backend = backend
         self.scheduler = ContinuousBatchScheduler(
             backend, max_batch_size=max_batch_size
         )
-        self._queues: dict[str, asyncio.Queue[StreamChunk]] = {}
+        self._queues: dict[str, asyncio.Queue[StreamChunk | Exception]] = {}
         self._detokenizers: dict[str, Any] = {}
         self._worker_task: asyncio.Task[None] | None = None
         self._lock: asyncio.Lock | None = None
@@ -67,9 +68,9 @@ class ServingEngine:
         self._ensure_worker()
         assert self._lock is not None and self._wake is not None
         request_id = uuid4().hex
-        queue: asyncio.Queue[StreamChunk] = asyncio.Queue()
+        queue: asyncio.Queue[StreamChunk | Exception] = asyncio.Queue()
         self._queues[request_id] = queue
-        self._detokenizers[request_id] = self.backend.tokenizer.detokenizer
+        self._detokenizers[request_id] = self.backend.new_detokenizer()
         prompt_ids = self.backend.encode(prompt)
         async with self._lock:
             self.scheduler.submit(
@@ -80,7 +81,10 @@ class ServingEngine:
             self._wake.set()
 
         while True:
-            chunk = await queue.get()
+            item = await queue.get()
+            if isinstance(item, Exception):
+                raise RuntimeError("serving worker failed") from item
+            chunk = item
             yield chunk
             if chunk.finished:
                 break
@@ -106,13 +110,21 @@ class ServingEngine:
             if self._closed:
                 break
             while True:
-                async with self._lock:
-                    if not self.scheduler.has_work:
-                        self._wake.clear()
-                        break
-                    events = await asyncio.to_thread(self.scheduler.step)
-                await self._dispatch(events)
-                await asyncio.sleep(0)
+                try:
+                    async with self._lock:
+                        if not self.scheduler.has_work:
+                            self._wake.clear()
+                            break
+                        events = await asyncio.to_thread(self.scheduler.step)
+                    await self._dispatch(events)
+                    await asyncio.sleep(0)
+                except Exception as exc:
+                    self._closed = True
+                    for queue in list(self._queues.values()):
+                        await queue.put(exc)
+                    self._queues.clear()
+                    self._detokenizers.clear()
+                    return
 
     async def _dispatch(self, events: list[SchedulerEvent]) -> None:
         for event in events:
@@ -125,7 +137,12 @@ class ServingEngine:
                 detokenizer.finalize()
                 text += detokenizer.last_segment
             await self._queues[event.request_id].put(
-                StreamChunk(event.token_id, text, event.finished)
+                StreamChunk(
+                    event.token_id,
+                    text,
+                    event.finished,
+                    event.finish_reason,
+                )
             )
             if event.finished:
                 self.scheduler.pop_result(event.request_id)
@@ -161,7 +178,7 @@ def create_app(engine: StreamEngine) -> FastAPI:
                         created=created,
                         model=request.model,
                         text=chunk.text,
-                        finished=chunk.finished,
+                        finish_reason=chunk.finish_reason,
                     )
                     yield f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
                 yield "data: [DONE]\n\n"
@@ -177,7 +194,7 @@ def create_app(engine: StreamEngine) -> FastAPI:
                 created=created,
                 model=request.model,
                 text="".join(text_parts),
-                finished=True,
+                finish_reason=chunk.finish_reason,
             )
         )
 
@@ -190,7 +207,7 @@ def _completion_payload(
     created: int,
     model: str,
     text: str,
-    finished: bool,
+    finish_reason: Literal["stop", "length"] | None,
 ) -> dict[str, Any]:
     return {
         "id": completion_id,
@@ -202,7 +219,7 @@ def _completion_payload(
                 "text": text,
                 "index": 0,
                 "logprobs": None,
-                "finish_reason": "stop" if finished else None,
+                "finish_reason": finish_reason,
             }
         ],
     }
