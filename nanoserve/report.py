@@ -101,6 +101,41 @@ def write_cache_report(
     return report
 
 
+def write_batch_report(
+    *,
+    rows: Sequence[dict[str, Any]],
+    model_id: str,
+    output_dir: Path,
+) -> dict[str, Any]:
+    """Write concurrency latency percentiles and a p95 scaling chart."""
+    if not rows:
+        raise ValueError("rows must contain at least one batch benchmark result")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summaries: dict[str, Any] = {}
+    for concurrency in sorted({int(row["concurrency"]) for row in rows}):
+        group = [row for row in rows if int(row["concurrency"]) == concurrency]
+        ttft = percentile_summary([float(row["ttft_seconds"]) for row in group])
+        latency = percentile_summary(
+            [float(row["latency_seconds"]) for row in group]
+        )
+        summaries[str(concurrency)] = {
+            "requests": len(group),
+            "ttft_seconds": asdict(ttft),
+            "latency_seconds": asdict(latency),
+        }
+    report = {
+        "model": model_id,
+        "system": system_info(model_id),
+        "concurrency": summaries,
+        "requests": list(rows),
+    }
+    (output_dir / "batch_benchmark.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
+    _write_batch_chart(summaries, output_dir)
+    return report
+
+
 def _write_latency_chart(
     rows: Sequence[dict[str, Any]],
     ttft: PercentileSummary,
@@ -159,4 +194,30 @@ def _write_cache_chart(rows: Sequence[dict[str, Any]], output_dir: Path) -> None
     axis.legend()
     figure.tight_layout()
     figure.savefig(output_dir / "cache_benchmark.png", dpi=160)
+    plt.close(figure)
+
+
+def _write_batch_chart(summaries: dict[str, Any], output_dir: Path) -> None:
+    concurrency = sorted(int(value) for value in summaries)
+    ttft_p95 = [
+        summaries[str(value)]["ttft_seconds"]["p95"] * 1000
+        for value in concurrency
+    ]
+    latency_p95 = [
+        summaries[str(value)]["latency_seconds"]["p95"] * 1000
+        for value in concurrency
+    ]
+    figure, axis = plt.subplots(figsize=(9, 4.8))
+    axis.plot(concurrency, ttft_p95, marker="o", label="TTFT p95")
+    axis.plot(concurrency, latency_p95, marker="s", label="end-to-end p95")
+    axis.set(
+        title="Continuous batching latency under concurrency",
+        xlabel="concurrent requests",
+        ylabel="milliseconds",
+        xticks=concurrency,
+    )
+    axis.grid(alpha=0.2)
+    axis.legend()
+    figure.tight_layout()
+    figure.savefig(output_dir / "batch_benchmark.png", dpi=160)
     plt.close(figure)

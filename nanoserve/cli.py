@@ -153,11 +153,95 @@ def cache_command(
     _print_cache_table(report)
 
 
+@app.command("batch-bench")
+def batch_bench(
+    runs: int = typer.Option(3, min=1, help="Batches per concurrency level."),
+    max_tokens: int = typer.Option(16, min=2, help="Output-token limit."),
+    model: str = typer.Option(DEFAULT_MODEL, help="MLX model ID or local path."),
+    output_dir: Path = typer.Option(Path("results"), help="Artifact directory."),
+) -> None:
+    """Measure p50/p95/p99 latency at concurrency 1, 2, 4, and 8."""
+    from time import perf_counter
+
+    from nanoserve.backends.mlx_backend import MLXBackend
+    from nanoserve.engine.scheduler import ContinuousBatchScheduler
+    from nanoserve.report import write_batch_report
+
+    prompt_path = Path(__file__).parents[1] / "prompts" / "bench.json"
+    prompts = json.loads(prompt_path.read_text(encoding="utf-8"))
+    backend = MLXBackend.load(model)
+    encoded_prompts = [backend.encode(prompt) for prompt in prompts]
+    rows = []
+
+    # One untimed batch warms the default model kernels.
+    warmup = ContinuousBatchScheduler(backend, max_batch_size=1)
+    warmup.submit(encoded_prompts[0], max_tokens=2, request_id="warmup")
+    while warmup.has_work:
+        warmup.step()
+    warmup.pop_result("warmup")
+
+    for concurrency in (1, 2, 4, 8):
+        for run_index in range(runs):
+            scheduler = ContinuousBatchScheduler(
+                backend, max_batch_size=concurrency
+            )
+            request_ids = []
+            submitted_at = perf_counter()
+            for request_index in range(concurrency):
+                request_id = f"c{concurrency}-r{run_index}-q{request_index}"
+                scheduler.submit(
+                    encoded_prompts[request_index % len(encoded_prompts)],
+                    max_tokens=max_tokens,
+                    request_id=request_id,
+                    submitted_at=submitted_at,
+                )
+                request_ids.append(request_id)
+            while scheduler.has_work:
+                scheduler.step()
+            for request_id in request_ids:
+                result = scheduler.pop_result(request_id)
+                if result is None:
+                    raise RuntimeError(f"missing completed result: {request_id}")
+                metrics = request_metrics(
+                    started_at=result.submitted_at,
+                    token_timestamps=result.token_timestamps,
+                )
+                rows.append(
+                    {
+                        "request_id": request_id,
+                        "concurrency": concurrency,
+                        "run": run_index + 1,
+                        "ttft_seconds": metrics.ttft_seconds,
+                        "tpot_seconds": metrics.tpot_seconds,
+                        "latency_seconds": result.completed_at - result.submitted_at,
+                        "output_tokens": metrics.output_tokens,
+                    }
+                )
+
+    report = write_batch_report(
+        rows=rows,
+        model_id=backend.model_id,
+        output_dir=output_dir,
+    )
+    _print_batch_table(report)
+
+
 @app.command()
-def serve() -> None:
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Bind address."),
+    port: int = typer.Option(8000, min=1, max=65535, help="Bind port."),
+    max_batch_size: int = typer.Option(8, min=1, help="Maximum active requests."),
+    model: str = typer.Option(DEFAULT_MODEL, help="MLX model ID or local path."),
+) -> None:
     """Run the OpenAI-compatible streaming server."""
-    typer.echo("Phase 3 server is not implemented yet.", err=True)
-    raise typer.Exit(code=2)
+    import uvicorn
+
+    from nanoserve.backends.mlx_backend import MLXBackend
+    from nanoserve.server import ServingEngine, create_app
+
+    backend = MLXBackend.load(model)
+    engine = ServingEngine(backend, max_batch_size=max_batch_size)
+    uvicorn.run(create_app(engine), host=host, port=port)
 
 
 def _print_benchmark_table(report: dict[str, object]) -> None:
@@ -203,3 +287,27 @@ def _print_cache_table(report: dict[str, object]) -> None:
         f"p50 TTFT drop: {float(report['p50_ttft_drop_fraction']) * 100:.1f}% | "
         f"token-identical: {report['token_identical']}"
     )
+
+
+def _print_batch_table(report: dict[str, object]) -> None:
+    summaries = report["concurrency"]
+    if not isinstance(summaries, dict):
+        raise TypeError("batch report summaries are missing")
+    table = Table(title="continuous batching latency")
+    table.add_column("concurrency", justify="right")
+    table.add_column("TTFT p50", justify="right")
+    table.add_column("TTFT p95", justify="right")
+    table.add_column("TTFT p99", justify="right")
+    table.add_column("latency p95", justify="right")
+    for concurrency in (1, 2, 4, 8):
+        summary = summaries[str(concurrency)]
+        ttft = summary["ttft_seconds"]
+        latency = summary["latency_seconds"]
+        table.add_row(
+            str(concurrency),
+            f"{float(ttft['p50']) * 1000:.2f} ms",
+            f"{float(ttft['p95']) * 1000:.2f} ms",
+            f"{float(ttft['p99']) * 1000:.2f} ms",
+            f"{float(latency['p95']) * 1000:.2f} ms",
+        )
+    Console().print(table)
