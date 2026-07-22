@@ -1,0 +1,6 @@
+[
+  "Explain why a KV cache reduces autoregressive decoding work in two sentences.",
+  "Write a Python function that returns the larger of two integers, then explain it briefly.",
+  "List three reasons time to first token matters in an interactive LLM application."
+]
+
