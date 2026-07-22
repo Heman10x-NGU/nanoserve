@@ -14,7 +14,7 @@ from typing import Any
 import mlx.core as mx
 import mlx_lm
 from mlx_lm import load as load_mlx_model
-from mlx_lm.models.cache import make_prompt_cache
+from mlx_lm.models.cache import BatchKVCache, KVCache, make_prompt_cache
 from mlx.utils import tree_map
 
 from nanoserve.backends.base import (
@@ -33,6 +33,9 @@ class MLXBackend:
         self.model = model
         self.tokenizer = tokenizer
         self.model_id = model_id
+        self.eos_token_ids = set(tokenizer.eos_token_ids)
+        self.batch_forward_count = 0
+        self.batch_token_slots = 0
 
     @property
     def cache_namespace(self) -> str:
@@ -61,6 +64,63 @@ class MLXBackend:
             clones.append(type(entry).from_state(state, entry.meta_state))
         mx.eval([entry.state for entry in clones])
         return clones
+
+    def prefill_batch(
+        self, prompts: list[list[int]]
+    ) -> tuple[list[int], list[BatchKVCache]]:
+        """Prefill a right-aligned prompt batch in one model forward pass."""
+        if not prompts or any(not prompt for prompt in prompts):
+            raise ValueError("prompts must contain non-empty token sequences")
+        if any(type(cache) is not KVCache for cache in self.new_cache()):
+            raise TypeError("continuous batching v1 requires standard KVCache layers")
+
+        max_length = max(len(prompt) for prompt in prompts)
+        left_padding = [max_length - len(prompt) for prompt in prompts]
+        pad_token_id = int(self.tokenizer.pad_token_id or 0)
+        padded = [
+            [pad_token_id] * padding + prompt
+            for prompt, padding in zip(prompts, left_padding)
+        ]
+        cache = [BatchKVCache(left_padding) for _ in self.model.layers]
+        logits = self.model(mx.array(padded), cache=cache)
+        next_tokens = mx.argmax(logits[:, -1, :], axis=-1)
+        mx.eval(next_tokens, [entry.state for entry in cache])
+        self.batch_forward_count += 1
+        self.batch_token_slots += len(prompts)
+        return [int(token) for token in next_tokens.tolist()], cache
+
+    def decode_batch(
+        self, token_ids: list[int], cache: list[BatchKVCache]
+    ) -> tuple[list[int], list[BatchKVCache]]:
+        """Advance every active request through one shared model forward."""
+        if not token_ids:
+            raise ValueError("token_ids must contain at least one active request")
+        logits = self.model(mx.array([[token] for token in token_ids]), cache=cache)
+        next_tokens = mx.argmax(logits[:, -1, :], axis=-1)
+        mx.eval(next_tokens, [entry.state for entry in cache])
+        self.batch_forward_count += 1
+        self.batch_token_slots += len(token_ids)
+        return [int(token) for token in next_tokens.tolist()], cache
+
+    def extend_batch_cache(
+        self,
+        active: list[BatchKVCache],
+        admitted: list[BatchKVCache],
+    ) -> list[BatchKVCache]:
+        """Append newly prefetched request state to the active cache batch."""
+        for active_layer, admitted_layer in zip(active, admitted):
+            active_layer.extend(admitted_layer)
+        mx.eval([entry.state for entry in active])
+        return active
+
+    def filter_batch_cache(
+        self, cache: list[BatchKVCache], indices: list[int]
+    ) -> list[BatchKVCache]:
+        """Drop finished rows while preserving the surviving batch order."""
+        for entry in cache:
+            entry.filter(indices)
+        mx.eval([entry.state for entry in cache])
+        return cache
 
     def encode(
         self, prompt: str | Sequence[int], *, add_special_tokens: bool = True

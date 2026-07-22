@@ -1,5 +1,7 @@
 """Deterministic scheduler tests through its public submission/step seam."""
 
+import pytest
+
 from nanoserve.engine.scheduler import ContinuousBatchScheduler
 
 
@@ -93,3 +95,24 @@ def test_eos_finishes_without_exposing_the_stop_token() -> None:
     assert result is not None
     assert result.token_ids == ()
     assert backend.decode_batches == []
+
+
+@pytest.mark.integration
+def test_mlx_scheduler_batches_active_requests_in_one_forward() -> None:
+    from nanoserve.backends.base import DEFAULT_MODEL
+    from nanoserve.backends.mlx_backend import MLXBackend
+
+    backend = MLXBackend.load(DEFAULT_MODEL)
+    scheduler = ContinuousBatchScheduler(backend, max_batch_size=2)
+    scheduler.submit(backend.encode("The capital of France is"), max_tokens=4, request_id="a")
+    scheduler.submit(backend.encode("The capital of Japan is"), max_tokens=4, request_id="b")
+
+    while scheduler.has_work:
+        scheduler.step()
+
+    first = scheduler.pop_result("a")
+    second = scheduler.pop_result("b")
+    assert first is not None and len(first.token_ids) == 4
+    assert second is not None and len(second.token_ids) == 4
+    assert backend.batch_forward_count == 4
+    assert backend.batch_token_slots == 8
