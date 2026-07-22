@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nanoserve"
+version = "0.1.0"
+description = "A minimal, readable LLM inference and serving engine for Apple Silicon."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Hemant" }]
+dependencies = [
+  "fastapi>=0.115",
+  "matplotlib>=3.9",
+  "mlx>=0.20",
+  "mlx-lm>=0.20",
+  "numpy>=2.0",
+  "rich>=13.9",
+  "typer>=0.15",
+  "uvicorn>=0.34",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[project.scripts]
+nanoserve = "nanoserve.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["nanoserve"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
