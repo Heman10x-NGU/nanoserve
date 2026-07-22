@@ -226,6 +226,85 @@ def batch_bench(
     _print_batch_table(report)
 
 
+@app.command("baseline")
+def baseline_bench(
+    runs: int = typer.Option(5, min=1, help="Paired repetitions."),
+    max_tokens: int = typer.Option(32, min=2, help="Output-token limit."),
+    model: str = typer.Option(DEFAULT_MODEL, help="MLX model ID or local path."),
+    output_dir: Path = typer.Option(Path("results"), help="Artifact directory."),
+) -> None:
+    """Compare nanoserve with mlx_lm.generate in one model process."""
+    from time import perf_counter
+
+    import mlx_lm
+
+    from nanoserve.backends.mlx_backend import MLXBackend
+    from nanoserve.report import write_baseline_report
+
+    prompt_path = Path(__file__).parents[1] / "prompts" / "bench.json"
+    prompts = json.loads(prompt_path.read_text(encoding="utf-8"))
+    backend = MLXBackend.load(model)
+
+    # Compile both implementations without including warmup in the report.
+    backend.generate(prompts[0], max_tokens=2)
+    mlx_lm.generate(
+        backend.model,
+        backend.tokenizer,
+        prompts[0],
+        max_tokens=2,
+        verbose=False,
+    )
+
+    rows = []
+    for run_index in range(runs):
+        prompt = prompts[run_index % len(prompts)]
+        started_at = perf_counter()
+        own = backend.generate(prompt, max_tokens=max_tokens)
+        own_elapsed = perf_counter() - started_at
+        if not isinstance(own, GenerationResult):
+            raise RuntimeError("baseline requires completed generations")
+        rows.append(
+            {
+                "implementation": "nanoserve",
+                "run": run_index + 1,
+                "prompt_id": run_index % len(prompts),
+                "latency_seconds": own_elapsed,
+                "output_tokens": len(own.token_ids),
+                "tokens_per_second": len(own.token_ids) / own_elapsed,
+            }
+        )
+
+        started_at = perf_counter()
+        reference_text = mlx_lm.generate(
+            backend.model,
+            backend.tokenizer,
+            prompt,
+            max_tokens=max_tokens,
+            verbose=False,
+        )
+        reference_elapsed = perf_counter() - started_at
+        reference_tokens = len(
+            backend.tokenizer.encode(reference_text, add_special_tokens=False)
+        )
+        rows.append(
+            {
+                "implementation": "mlx_lm.generate",
+                "run": run_index + 1,
+                "prompt_id": run_index % len(prompts),
+                "latency_seconds": reference_elapsed,
+                "output_tokens": reference_tokens,
+                "tokens_per_second": reference_tokens / reference_elapsed,
+            }
+        )
+
+    report = write_baseline_report(
+        rows=rows,
+        model_id=backend.model_id,
+        output_dir=output_dir,
+    )
+    _print_baseline_table(report)
+
+
 @app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind address."),
@@ -309,5 +388,23 @@ def _print_batch_table(report: dict[str, object]) -> None:
             f"{float(ttft['p95']) * 1000:.2f} ms",
             f"{float(ttft['p99']) * 1000:.2f} ms",
             f"{float(latency['p95']) * 1000:.2f} ms",
+        )
+    Console().print(table)
+
+
+def _print_baseline_table(report: dict[str, object]) -> None:
+    implementations = report["implementations"]
+    if not isinstance(implementations, dict):
+        raise TypeError("baseline implementation summaries are missing")
+    table = Table(title="single-request baseline")
+    table.add_column("implementation")
+    table.add_column("latency p50", justify="right")
+    table.add_column("throughput p50", justify="right")
+    for name in ("nanoserve", "mlx_lm.generate"):
+        summary = implementations[name]
+        table.add_row(
+            name,
+            f"{float(summary['latency_seconds']['p50']) * 1000:.2f} ms",
+            f"{float(summary['tokens_per_second']['p50']):.2f} tok/s",
         )
     Console().print(table)

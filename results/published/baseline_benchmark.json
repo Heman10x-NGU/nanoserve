@@ -1,0 +1,121 @@
+{
+  "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+  "system": {
+    "captured_at": "2026-07-22T20:43:45.995472+00:00",
+    "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+    "platform": "macOS-26.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.11.15"
+  },
+  "method": "Same loaded model, tokenizer, fixed prompts, greedy decoding, and requested token limit. End-to-end wall time includes prefill and decode.",
+  "implementations": {
+    "nanoserve": {
+      "runs": 5,
+      "latency_seconds": {
+        "p50": 1.0187520422041416,
+        "p95": 1.167822033446282,
+        "p99": 1.1841542732529342
+      },
+      "tokens_per_second": {
+        "p50": 31.410979977783164,
+        "p95": 46.9444176483159,
+        "p99": 48.266074293157565
+      }
+    },
+    "mlx_lm.generate": {
+      "runs": 5,
+      "latency_seconds": {
+        "p50": 0.7666442911140621,
+        "p95": 1.0710042079910636,
+        "p99": 1.1286558080092073
+      },
+      "tokens_per_second": {
+        "p50": 41.74034864786987,
+        "p95": 45.81583403172924,
+        "p99": 46.52404634468886
+      }
+    }
+  },
+  "requests": [
+    {
+      "implementation": "nanoserve",
+      "run": 1,
+      "prompt_id": 0,
+      "latency_seconds": 1.0187520422041416,
+      "output_tokens": 32,
+      "tokens_per_second": 31.410979977783164
+    },
+    {
+      "implementation": "mlx_lm.generate",
+      "run": 1,
+      "prompt_id": 0,
+      "latency_seconds": 0.7666442911140621,
+      "output_tokens": 32,
+      "tokens_per_second": 41.74034864786987
+    },
+    {
+      "implementation": "nanoserve",
+      "run": 2,
+      "prompt_id": 1,
+      "latency_seconds": 1.1882373332045972,
+      "output_tokens": 32,
+      "tokens_per_second": 26.930646854612895
+    },
+    {
+      "implementation": "mlx_lm.generate",
+      "run": 2,
+      "prompt_id": 1,
+      "latency_seconds": 0.6852087080478668,
+      "output_tokens": 32,
+      "tokens_per_second": 46.70109942292877
+    },
+    {
+      "implementation": "nanoserve",
+      "run": 3,
+      "prompt_id": 2,
+      "latency_seconds": 0.6584837920963764,
+      "output_tokens": 32,
+      "tokens_per_second": 48.59648845436798
+    },
+    {
+      "implementation": "mlx_lm.generate",
+      "run": 3,
+      "prompt_id": 2,
+      "latency_seconds": 0.7827462079003453,
+      "output_tokens": 32,
+      "tokens_per_second": 40.88170556052576
+    },
+    {
+      "implementation": "nanoserve",
+      "run": 4,
+      "prompt_id": 0,
+      "latency_seconds": 1.0861608344130218,
+      "output_tokens": 32,
+      "tokens_per_second": 29.46156681969968
+    },
+    {
+      "implementation": "mlx_lm.generate",
+      "run": 4,
+      "prompt_id": 0,
+      "latency_seconds": 1.1430687080137432,
+      "output_tokens": 32,
+      "tokens_per_second": 27.994817613024242
+    },
+    {
+      "implementation": "nanoserve",
+      "run": 5,
+      "prompt_id": 1,
+      "latency_seconds": 0.7933333339169621,
+      "output_tokens": 32,
+      "tokens_per_second": 40.33613442410757
+    },
+    {
+      "implementation": "mlx_lm.generate",
+      "run": 5,
+      "prompt_id": 1,
+      "latency_seconds": 0.75695262523368,
+      "output_tokens": 32,
+      "tokens_per_second": 42.27477246693111
+    }
+  ]
+}

@@ -136,6 +136,49 @@ def write_batch_report(
     return report
 
 
+def write_baseline_report(
+    *,
+    rows: Sequence[dict[str, Any]],
+    model_id: str,
+    output_dir: Path,
+) -> dict[str, Any]:
+    """Write an end-to-end throughput comparison with mlx_lm.generate."""
+    if not rows:
+        raise ValueError("rows must contain at least one baseline result")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    implementations: dict[str, Any] = {}
+    for implementation in ("nanoserve", "mlx_lm.generate"):
+        group = [row for row in rows if row["implementation"] == implementation]
+        if not group:
+            raise ValueError(f"missing baseline rows for {implementation}")
+        latency = percentile_summary(
+            [float(row["latency_seconds"]) for row in group]
+        )
+        throughput = percentile_summary(
+            [float(row["tokens_per_second"]) for row in group]
+        )
+        implementations[implementation] = {
+            "runs": len(group),
+            "latency_seconds": asdict(latency),
+            "tokens_per_second": asdict(throughput),
+        }
+    report = {
+        "model": model_id,
+        "system": system_info(model_id),
+        "method": (
+            "Same loaded model, tokenizer, fixed prompts, greedy decoding, and "
+            "requested token limit. End-to-end wall time includes prefill and decode."
+        ),
+        "implementations": implementations,
+        "requests": list(rows),
+    }
+    (output_dir / "baseline_benchmark.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
+    _write_baseline_chart(implementations, output_dir)
+    return report
+
+
 def _write_latency_chart(
     rows: Sequence[dict[str, Any]],
     ttft: PercentileSummary,
@@ -220,4 +263,24 @@ def _write_batch_chart(summaries: dict[str, Any], output_dir: Path) -> None:
     axis.legend()
     figure.tight_layout()
     figure.savefig(output_dir / "batch_benchmark.png", dpi=160)
+    plt.close(figure)
+
+
+def _write_baseline_chart(
+    implementations: dict[str, Any], output_dir: Path
+) -> None:
+    labels = ["nanoserve", "mlx_lm.generate"]
+    throughput = [
+        implementations[label]["tokens_per_second"]["p50"] for label in labels
+    ]
+    figure, axis = plt.subplots(figsize=(8, 4.8))
+    bars = axis.bar(labels, throughput, color=["#2563eb", "#64748b"])
+    axis.bar_label(bars, fmt="%.1f tok/s", padding=3)
+    axis.set(
+        title="End-to-end generation throughput",
+        ylabel="output tokens per second",
+    )
+    axis.grid(axis="y", alpha=0.2)
+    figure.tight_layout()
+    figure.savefig(output_dir / "baseline_benchmark.png", dpi=160)
     plt.close(figure)
