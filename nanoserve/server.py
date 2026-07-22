@@ -32,6 +32,9 @@ class StreamChunk:
 
 
 class StreamEngine(Protocol):
+    @property
+    def healthy(self) -> bool: ...
+
     async def stream(
         self, prompt: str, *, max_tokens: int
     ) -> AsyncIterator[StreamChunk]: ...
@@ -65,6 +68,8 @@ class ServingEngine:
         self, prompt: str, *, max_tokens: int
     ) -> AsyncIterator[StreamChunk]:
         """Submit one request and yield segments as scheduler steps finish."""
+        if self._closed:
+            raise RuntimeError("serving engine is closed")
         self._ensure_worker()
         assert self._lock is not None and self._wake is not None
         request_id = uuid4().hex
@@ -95,6 +100,11 @@ class ServingEngine:
             self._wake.set()
         if self._worker_task is not None:
             await self._worker_task
+
+    @property
+    def healthy(self) -> bool:
+        """Whether this engine can accept and execute new requests."""
+        return not self._closed
 
     def _ensure_worker(self) -> None:
         if self._worker_task is not None:
@@ -160,7 +170,9 @@ def create_app(engine: StreamEngine) -> FastAPI:
     app = FastAPI(title="nanoserve", version="0.1.0", lifespan=lifespan)
 
     @app.get("/health")
-    async def health() -> dict[str, str]:
+    async def health():
+        if not engine.healthy:
+            return JSONResponse({"status": "error"}, status_code=503)
         return {"status": "ok"}
 
     @app.post("/v1/completions")

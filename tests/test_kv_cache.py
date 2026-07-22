@@ -134,3 +134,26 @@ def test_mlx_backend_stream_text_matches_completed_generation() -> None:
     )
     assert "".join(event.text for event in streamed) == completed.text
     assert streamed[-1].finished is True
+
+
+@pytest.mark.integration
+def test_mlx_backend_stream_emits_terminal_event_on_immediate_eos() -> None:
+    """EOS is explicit even when the detokenizer has no buffered text."""
+    from nanoserve.backends.base import DEFAULT_MODEL
+    from nanoserve.backends.mlx_backend import MLXBackend
+
+    backend = MLXBackend.load(DEFAULT_MODEL)
+    prompt = "The capital of France is"
+    first = backend.generate(prompt, max_tokens=1)
+    predicted_token = first.token_ids[0]
+    eos_token_ids = backend.tokenizer.eos_token_ids
+    eos_token_ids.add(predicted_token)
+    try:
+        events = list(backend.generate(prompt, stream=True, max_tokens=2))
+    finally:
+        eos_token_ids.remove(predicted_token)
+
+    assert len(events) == 1
+    assert events[0].token_id is None
+    assert events[0].text == ""
+    assert events[0].finished is True

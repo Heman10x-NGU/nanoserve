@@ -214,13 +214,12 @@ class MLXBackend:
             if token_id in eos_token_ids:
                 detokenizer.finalize()
                 final_text = detokenizer.last_segment
-                if final_text:
-                    yield TokenEvent(
-                        token_id=None,
-                        text=final_text,
-                        timestamp=timestamp,
-                        finished=True,
-                    )
+                yield TokenEvent(
+                    token_id=None,
+                    text=final_text,
+                    timestamp=timestamp,
+                    finished=True,
+                )
                 return
 
             detokenizer.add_token(token_id)

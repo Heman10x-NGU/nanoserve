@@ -9,6 +9,8 @@ from nanoserve.server import ServingEngine, StreamChunk, create_app
 
 
 class FakeServingEngine:
+    healthy = True
+
     async def stream(self, prompt: str, *, max_tokens: int):
         assert prompt == "hello"
         assert max_tokens == 2
@@ -97,6 +99,14 @@ def test_worker_failure_reaches_waiting_stream_and_shutdown_is_clean() -> None:
             assert "serving worker failed" in str(exc)
         else:
             raise AssertionError("worker failure did not reach the request")
+        assert engine.healthy is False
+        try:
+            async for _ in engine.stream("second", max_tokens=2):
+                pass
+        except RuntimeError as exc:
+            assert "closed" in str(exc)
+        else:
+            raise AssertionError("failed engine accepted another request")
         await engine.close()
 
     asyncio.run(consume())
