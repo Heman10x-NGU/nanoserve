@@ -5,23 +5,23 @@
 On an M4 Mac with the default 0.5B 4-bit model, reusing a verified 576-token
 prefix reduced median time to first token from **323.47 ms to 93.09 ms
 (71.2%)**. Warm timing includes hash lookup and synchronized KV-array cloning.
-Five paired runs produced token-identical greedy output and a 100%
-cache hit rate. The raw evidence is committed in
+Five paired runs produced token-identical greedy output, and all five warm
+lookups hit the prepared prefix. The raw evidence is committed in
 [`results/published/cache_benchmark.json`](results/published/cache_benchmark.json).
 
-`nanoserve` is a deliberately small MLX inference engine: a hand-written decode
-loop, block-hashed prefix reuse, continuous batching, and an OpenAI-compatible
-streaming server. The point is to expose the mechanism, not claim production
-parity with vLLM.
+`nanoserve` is a compact MLX inference engine with a direct autoregressive
+decode loop, block-hashed prefix reuse, continuous batching, and an
+OpenAI-compatible streaming endpoint. Each mechanism is small enough to trace
+from request admission to an evaluated token.
 
 ## Run it
 
-Requires Apple Silicon, macOS, and Python 3.11.
+Requires Apple Silicon, macOS, and Python 3.11 or 3.12.
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
+pip install -e .
 nanoserve bench --runs 10
 ```
 
@@ -77,16 +77,13 @@ greedy sampling, and requested token limit:
 | nanoserve | 281.99 ms | 113.48 tok/s |
 | `mlx_lm.generate` | 253.10 ms | 126.43 tok/s |
 
-Pair order alternates to reduce systematic thermal/order bias. The public
-`mlx_lm.generate` API returns text, so its output count is recovered by
-re-tokenizing that text; all five rows produced the requested 32 tokens. The
-reference implementation is faster, as expected. Nanoserve prefills in
-fixed 64-token blocks to preserve cold/warm numerical identity, and its Python
-loop synchronizes every token for honest timestamps. During autoregressive
-decode, each step reads the model weights to produce one token, so the workload
-is predominantly memory-bandwidth-bound. Batching improves weight reuse across
-requests, while extra Python or sampling tricks cannot move the hardware
-roofline by themselves.
+Pair order alternates to reduce thermal and order bias. The public
+`mlx_lm.generate` API returns text, so the benchmark re-tokenizes its output;
+all five rows produced the requested 32 tokens. `mlx_lm.generate` was faster in
+this run. Nanoserve uses fixed 64-token prefill blocks to preserve cold/warm
+numerical identity and calls `mx.eval()` before recording each token timestamp.
+During autoregressive decode, each step reads the model weights to produce one
+new token. Batching amortizes those reads across active requests.
 
 Run the exact measurements with:
 
@@ -97,7 +94,7 @@ MPLCONFIGDIR=results/.mplconfig nanoserve batch-bench --runs 3
 MPLCONFIGDIR=results/.mplconfig nanoserve baseline --runs 5
 ```
 
-## Correctness before speed
+## Correctness gates
 
 Prefix keys hash token IDs in fixed blocks and chain every block to its parent,
 model/tokenizer namespace, and cache-format version. Entries clone MLX arrays on
@@ -119,8 +116,8 @@ The design was informed by pinned source reads of
 [vLLM v1 core](https://github.com/vllm-project/vllm/tree/a287eb163fb6f8f007a4a78411fb54c8dde64cc7/vllm/v1/core), and
 [mlx-lm](https://github.com/ml-explore/mlx-lm/tree/cf10f962b7a20e63a6df43dbf0faf06070153d40).
 Nanoserve does not implement paged attention, distributed KV transfer,
-preemption, cancellation, speculative decoding, or CUDA. It is an M4-only
-learning and portfolio engine, not a production serving system.
+preemption, cancellation, speculative decoding, or CUDA. The current release
+has been tested on one M4 Mac and is not a production serving system.
 
 No API or cloud provider was used, so this report makes no provider-cost claim.
 Any future cloud cost comparison must be **modeled at provider list prices**,
@@ -129,10 +126,8 @@ not presented as a measured bill or realized saving.
 ## Development
 
 ```bash
+pip install -e '.[dev]'
 pytest
 ```
-
-See [`docs/loom_script.md`](docs/loom_script.md) for the 90-second demo and
-[`docs/portfolio_card.md`](docs/portfolio_card.md) for the concise project card.
 
 MIT licensed.
