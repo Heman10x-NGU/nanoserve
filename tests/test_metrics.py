@@ -53,4 +53,3 @@ def test_percentile_summary_rejects_an_empty_sample() -> None:
 def test_cache_hit_rate_reports_hits_over_lookups() -> None:
     assert cache_hit_rate([True, False, True]) == pytest.approx(2 / 3)
     assert cache_hit_rate([]) == 0.0
-

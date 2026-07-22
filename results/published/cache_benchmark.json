@@ -1,10 +1,11 @@
 {
   "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
   "system": {
-    "captured_at": "2026-07-22T20:32:18.968644+00:00",
+    "captured_at": "2026-07-22T20:57:39.637416+00:00",
     "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
     "platform": "macOS-26.2-arm64-arm-64bit",
     "machine": "arm64",
+    "chip": "Apple M4",
     "python": "3.11.15"
   },
   "runs": 5,
@@ -12,45 +13,45 @@
   "cache_hit_rate": 1.0,
   "token_identical": true,
   "cold_ttft_seconds": {
-    "p50": 0.3444431251846254,
-    "p95": 0.34691321616992354,
-    "p99": 0.34736747620627284
+    "p50": 0.3234716667793691,
+    "p95": 0.33331224154680966,
+    "p99": 0.3345657483115792
   },
   "warm_ttft_seconds": {
-    "p50": 0.1174785839393735,
-    "p95": 0.1279092918150127,
-    "p99": 0.12843885837122798
+    "p50": 0.09308779193088412,
+    "p95": 0.10506016621366143,
+    "p99": 0.1064928994514048
   },
-  "p50_ttft_drop_fraction": 0.6589318370735265,
+  "p50_ttft_drop_fraction": 0.7122227338866848,
   "requests": [
     {
       "run": 1,
-      "cold_ttft_seconds": 0.33381850039586425,
-      "warm_ttft_seconds": 0.11447816714644432,
+      "cold_ttft_seconds": 0.3348791250027716,
+      "warm_ttft_seconds": 0.10685108276084065,
       "token_identical": true
     },
     {
       "run": 2,
-      "cold_ttft_seconds": 0.33179250033572316,
-      "warm_ttft_seconds": 0.1285712500102818,
+      "cold_ttft_seconds": 0.3270447077229619,
+      "warm_ttft_seconds": 0.09789650002494454,
       "token_identical": true
     },
     {
       "run": 3,
-      "cold_ttft_seconds": 0.34748104121536016,
-      "warm_ttft_seconds": 0.1174785839393735,
+      "cold_ttft_seconds": 0.31996658304706216,
+      "warm_ttft_seconds": 0.09308779193088412,
       "token_identical": true
     },
     {
       "run": 4,
-      "cold_ttft_seconds": 0.3444431251846254,
-      "warm_ttft_seconds": 0.12526145903393626,
+      "cold_ttft_seconds": 0.3234716667793691,
+      "warm_ttft_seconds": 0.09248262504115701,
       "token_identical": true
     },
     {
       "run": 5,
-      "cold_ttft_seconds": 0.34464191598817706,
-      "warm_ttft_seconds": 0.11681108409538865,
+      "cold_ttft_seconds": 0.3179218750447035,
+      "warm_ttft_seconds": 0.09176150010898709,
       "token_identical": true
     }
   ]

@@ -3,8 +3,9 @@
 ![Cold versus warm prefix-cache TTFT](results/published/cache_benchmark.png)
 
 On an M4 Mac with the default 0.5B 4-bit model, reusing a verified 576-token
-prefix reduced median time to first token from **344.44 ms to 117.48 ms
-(65.9%)**. Five paired runs produced token-identical greedy output and a 100%
+prefix reduced median time to first token from **323.47 ms to 93.09 ms
+(71.2%)**. Warm timing includes hash lookup and synchronized KV-array cloning.
+Five paired runs produced token-identical greedy output and a 100%
 cache hit rate. The raw evidence is committed in
 [`results/published/cache_benchmark.json`](results/published/cache_benchmark.json).
 
@@ -54,29 +55,32 @@ system metadata, percentile summaries, and per-request rows are committed under
 
 | Experiment | p50 | p95 | p99 |
 |---|---:|---:|---:|
-| single-request TTFT, 10 runs | 252.57 ms | 382.81 ms | 423.94 ms |
-| single-request TPOT, 10 runs | 11.38 ms | 16.75 ms | 19.54 ms |
-| prefix reuse cold TTFT, 5 runs | 344.44 ms | 346.91 ms | 347.37 ms |
-| prefix reuse warm TTFT, 5 runs | 117.48 ms | 127.91 ms | 128.44 ms |
+| single-request TTFT, 10 runs | 76.61 ms | 85.84 ms | 89.95 ms |
+| single-request TPOT, 10 runs | 6.44 ms | 6.74 ms | 6.74 ms |
+| prefix reuse cold TTFT, 5 runs | 323.47 ms | 333.31 ms | 334.57 ms |
+| prefix reuse warm TTFT, 5 runs | 93.09 ms | 105.06 ms | 106.49 ms |
 
 Continuous batching uses one model forward for all active request rows:
 
 | concurrency | requests | TTFT p50 | TTFT p95 | TTFT p99 | end-to-end p95 |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 3 | 19.15 ms | 19.63 ms | 19.68 ms | 691.70 ms |
-| 2 | 6 | 34.05 ms | 35.27 ms | 35.27 ms | 831.67 ms |
-| 4 | 12 | 44.12 ms | 47.31 ms | 47.31 ms | 536.45 ms |
-| 8 | 24 | 80.66 ms | 81.75 ms | 81.75 ms | 847.16 ms |
+| 1 | 3 | 18.69 ms | 18.78 ms | 18.78 ms | 200.45 ms |
+| 2 | 6 | 33.66 ms | 34.13 ms | 34.13 ms | 228.04 ms |
+| 4 | 12 | 45.49 ms | 47.04 ms | 47.04 ms | 268.77 ms |
+| 8 | 24 | 79.85 ms | 80.76 ms | 80.76 ms | 387.07 ms |
 
 The single-request baseline uses the same loaded model, tokenizer, prompts,
 greedy sampling, and requested token limit:
 
 | implementation | latency p50 | throughput p50 |
 |---|---:|---:|
-| nanoserve | 1018.75 ms | 31.41 tok/s |
-| `mlx_lm.generate` | 766.64 ms | 41.74 tok/s |
+| nanoserve | 281.99 ms | 113.48 tok/s |
+| `mlx_lm.generate` | 253.10 ms | 126.43 tok/s |
 
-The reference implementation is faster, as expected. Nanoserve prefills in
+Pair order alternates to reduce systematic thermal/order bias. The public
+`mlx_lm.generate` API returns text, so its output count is recovered by
+re-tokenizing that text; all five rows produced the requested 32 tokens. The
+reference implementation is faster, as expected. Nanoserve prefills in
 fixed 64-token blocks to preserve cold/warm numerical identity, and its Python
 loop synchronizes every token for honest timestamps. During autoregressive
 decode, each step reads the model weights to produce one token, so the workload
@@ -118,9 +122,9 @@ Nanoserve does not implement paged attention, distributed KV transfer,
 preemption, cancellation, speculative decoding, or CUDA. It is an M4-only
 learning and portfolio engine, not a production serving system.
 
-The measured local cost was zero incremental dollars because there were no API
-or cloud calls. Any future cloud cost comparison must be **modeled at provider
-list prices**, not presented as a bill or realized saving.
+No API or cloud provider was used, so this report makes no provider-cost claim.
+Any future cloud cost comparison must be **modeled at provider list prices**,
+not presented as a measured bill or realized saving.
 
 ## Development
 

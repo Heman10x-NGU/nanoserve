@@ -74,4 +74,3 @@ def percentile_summary(samples: Sequence[float]) -> PercentileSummary:
 def cache_hit_rate(hits: Sequence[bool]) -> float:
     """Return cache hits divided by lookups, or zero when no lookup occurred."""
     return sum(hits) / len(hits) if hits else 0.0
-

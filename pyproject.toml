@@ -22,13 +22,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3"]
+dev = ["httpx>=0.28", "pytest>=8.3"]
 
 [project.scripts]
 nanoserve = "nanoserve.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["nanoserve"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"prompts" = "nanoserve/prompts"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

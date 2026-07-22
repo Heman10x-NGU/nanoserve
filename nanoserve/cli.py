@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from time import perf_counter
 
 import typer
 from rich.console import Console
@@ -18,6 +19,14 @@ app = typer.Typer(
 )
 
 
+def _prompt_path(name: str) -> Path:
+    """Resolve fixed prompts in source/editable and built-wheel layouts."""
+    packaged = Path(__file__).parent / "prompts" / name
+    if packaged.exists():
+        return packaged
+    return Path(__file__).parents[1] / "prompts" / name
+
+
 @app.command()
 def bench(
     runs: int = typer.Option(10, min=1, help="Benchmark repetitions."),
@@ -30,7 +39,7 @@ def bench(
     from nanoserve.backends.mlx_backend import MLXBackend
     from nanoserve.report import write_benchmark_report
 
-    prompt_path = Path(__file__).parents[1] / "prompts" / "bench.json"
+    prompt_path = _prompt_path("bench.json")
     prompts = json.loads(prompt_path.read_text(encoding="utf-8"))
     backend = MLXBackend.load(model)
     rows = []
@@ -77,7 +86,7 @@ def cache_command(
     from nanoserve.engine.kv_cache import PrefixCache
     from nanoserve.report import write_cache_report
 
-    prompt_path = Path(__file__).parents[1] / "prompts" / "cache.json"
+    prompt_path = _prompt_path("cache.json")
     prompt = json.loads(prompt_path.read_text(encoding="utf-8"))
     prefix_text = " ".join(prompt["prefix_segments"] * int(prompt["repeat"]))
     backend = MLXBackend.load(model)
@@ -109,6 +118,7 @@ def cache_command(
     rows = []
     for run_index in range(runs):
         cold = backend.generate(full_ids, max_tokens=max_tokens)
+        warm_started_at = perf_counter()
         match = prefix_cache.longest_prefix(full_ids)
         if match is None:
             raise RuntimeError("published cache entry unexpectedly missed")
@@ -130,15 +140,12 @@ def cache_command(
             started_at=cold.started_at,
             token_timestamps=cold.token_timestamps,
         )
-        warm_metrics = request_metrics(
-            started_at=warm.started_at,
-            token_timestamps=warm.token_timestamps,
-        )
+        warm_ttft_seconds = warm.token_timestamps[0] - warm_started_at
         rows.append(
             {
                 "run": run_index + 1,
                 "cold_ttft_seconds": cold_metrics.ttft_seconds,
-                "warm_ttft_seconds": warm_metrics.ttft_seconds,
+                "warm_ttft_seconds": warm_ttft_seconds,
                 "token_identical": identical,
             }
         )
@@ -161,13 +168,11 @@ def batch_bench(
     output_dir: Path = typer.Option(Path("results"), help="Artifact directory."),
 ) -> None:
     """Measure p50/p95/p99 latency at concurrency 1, 2, 4, and 8."""
-    from time import perf_counter
-
     from nanoserve.backends.mlx_backend import MLXBackend
     from nanoserve.engine.scheduler import ContinuousBatchScheduler
     from nanoserve.report import write_batch_report
 
-    prompt_path = Path(__file__).parents[1] / "prompts" / "bench.json"
+    prompt_path = _prompt_path("bench.json")
     prompts = json.loads(prompt_path.read_text(encoding="utf-8"))
     backend = MLXBackend.load(model)
     encoded_prompts = [backend.encode(prompt) for prompt in prompts]
@@ -241,7 +246,7 @@ def baseline_bench(
     from nanoserve.backends.mlx_backend import MLXBackend
     from nanoserve.report import write_baseline_report
 
-    prompt_path = Path(__file__).parents[1] / "prompts" / "bench.json"
+    prompt_path = _prompt_path("bench.json")
     prompts = json.loads(prompt_path.read_text(encoding="utf-8"))
     backend = MLXBackend.load(model)
 
@@ -255,25 +260,22 @@ def baseline_bench(
         verbose=False,
     )
 
-    rows = []
-    for run_index in range(runs):
-        prompt = prompts[run_index % len(prompts)]
+    def measure_nanoserve(prompt: str, run_index: int) -> dict[str, object]:
         started_at = perf_counter()
         own = backend.generate(prompt, max_tokens=max_tokens)
         own_elapsed = perf_counter() - started_at
         if not isinstance(own, GenerationResult):
             raise RuntimeError("baseline requires completed generations")
-        rows.append(
-            {
-                "implementation": "nanoserve",
-                "run": run_index + 1,
-                "prompt_id": run_index % len(prompts),
-                "latency_seconds": own_elapsed,
-                "output_tokens": len(own.token_ids),
-                "tokens_per_second": len(own.token_ids) / own_elapsed,
-            }
-        )
+        return {
+            "implementation": "nanoserve",
+            "run": run_index + 1,
+            "prompt_id": run_index % len(prompts),
+            "latency_seconds": own_elapsed,
+            "output_tokens": len(own.token_ids),
+            "tokens_per_second": len(own.token_ids) / own_elapsed,
+        }
 
+    def measure_reference(prompt: str, run_index: int) -> dict[str, object]:
         started_at = perf_counter()
         reference_text = mlx_lm.generate(
             backend.model,
@@ -286,16 +288,23 @@ def baseline_bench(
         reference_tokens = len(
             backend.tokenizer.encode(reference_text, add_special_tokens=False)
         )
-        rows.append(
-            {
-                "implementation": "mlx_lm.generate",
-                "run": run_index + 1,
-                "prompt_id": run_index % len(prompts),
-                "latency_seconds": reference_elapsed,
-                "output_tokens": reference_tokens,
-                "tokens_per_second": reference_tokens / reference_elapsed,
-            }
-        )
+        return {
+            "implementation": "mlx_lm.generate",
+            "run": run_index + 1,
+            "prompt_id": run_index % len(prompts),
+            "latency_seconds": reference_elapsed,
+            "output_tokens": reference_tokens,
+            "tokens_per_second": reference_tokens / reference_elapsed,
+        }
+
+    rows = []
+    for run_index in range(runs):
+        prompt = prompts[run_index % len(prompts)]
+        measurements = (measure_nanoserve, measure_reference)
+        if run_index % 2:
+            measurements = tuple(reversed(measurements))
+        for measure in measurements:
+            rows.append(measure(prompt, run_index))
 
     report = write_baseline_report(
         rows=rows,

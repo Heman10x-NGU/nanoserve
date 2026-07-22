@@ -5,8 +5,9 @@
 Show the cache chart at the top of the README.
 
 > Nanoserve is a minimal inference engine I built directly on MLX. On this M4,
-> reusing a verified 576-token prefix cut median time to first token from 344 to
-> 117 milliseconds, with token-identical output across five paired runs.
+> reusing a verified 576-token prefix cut median time to first token from 323 to
+> 93 milliseconds, including lookup and KV cloning, with token-identical output
+> across five paired runs.
 
 ## 0:12-0:32 | Mechanism
 
@@ -44,6 +45,6 @@ Run `nanoserve serve`, then the README `curl -N` command in a second terminal.
 
 Show the baseline table.
 
-> mlx-lm's reference generator is faster: 41.74 versus 31.41 median tokens per
+> mlx-lm's reference generator is faster: 126.43 versus 113.48 median tokens per
 > second. This project demonstrates why serving is fast and where my simple
 > design pays overhead; it does not claim production parity.

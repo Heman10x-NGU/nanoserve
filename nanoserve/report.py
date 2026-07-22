@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import platform
+import subprocess
 import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -19,12 +20,23 @@ from nanoserve.metrics import PercentileSummary, percentile_summary
 
 
 def system_info(model_id: str) -> dict[str, str]:
-    """Return portable host metadata without shelling out or collecting secrets."""
+    """Return portable host metadata without collecting user or secret data."""
+    chip = platform.processor() or "unknown"
+    if sys.platform == "darwin":
+        completed = subprocess.run(
+            ["sysctl", "-n", "machdep.cpu.brand_string"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0 and completed.stdout.strip():
+            chip = completed.stdout.strip()
     return {
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "model": model_id,
         "platform": platform.platform(),
         "machine": platform.machine(),
+        "chip": chip,
         "python": sys.version.split()[0],
     }
 
@@ -167,7 +179,9 @@ def write_baseline_report(
         "system": system_info(model_id),
         "method": (
             "Same loaded model, tokenizer, fixed prompts, greedy decoding, and "
-            "requested token limit. End-to-end wall time includes prefill and decode."
+            "requested token limit. Pair order alternates. End-to-end wall time "
+            "includes prefill and decode; mlx_lm.generate output text is re-tokenized "
+            "because that public API returns text rather than token IDs."
         ),
         "implementations": implementations,
         "requests": list(rows),
