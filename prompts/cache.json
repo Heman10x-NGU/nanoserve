@@ -1,0 +1,10 @@
+{
+  "repeat": 12,
+  "prefix_segments": [
+    "A prefix cache stores the attention keys and values already computed for stable input tokens.",
+    "Reuse is safe only when model, tokenizer, token sequence, cache format, and positional offsets match.",
+    "A chained block hash identifies the entire prefix ending at each full block boundary."
+  ],
+  "suffix": "Question: In one sentence, what property must warm generation preserve? Answer:"
+}
+

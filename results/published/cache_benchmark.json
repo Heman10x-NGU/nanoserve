@@ -1,0 +1,57 @@
+{
+  "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+  "system": {
+    "captured_at": "2026-07-22T20:32:18.968644+00:00",
+    "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+    "platform": "macOS-26.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.11.15"
+  },
+  "runs": 5,
+  "prefix_tokens": 576,
+  "cache_hit_rate": 1.0,
+  "token_identical": true,
+  "cold_ttft_seconds": {
+    "p50": 0.3444431251846254,
+    "p95": 0.34691321616992354,
+    "p99": 0.34736747620627284
+  },
+  "warm_ttft_seconds": {
+    "p50": 0.1174785839393735,
+    "p95": 0.1279092918150127,
+    "p99": 0.12843885837122798
+  },
+  "p50_ttft_drop_fraction": 0.6589318370735265,
+  "requests": [
+    {
+      "run": 1,
+      "cold_ttft_seconds": 0.33381850039586425,
+      "warm_ttft_seconds": 0.11447816714644432,
+      "token_identical": true
+    },
+    {
+      "run": 2,
+      "cold_ttft_seconds": 0.33179250033572316,
+      "warm_ttft_seconds": 0.1285712500102818,
+      "token_identical": true
+    },
+    {
+      "run": 3,
+      "cold_ttft_seconds": 0.34748104121536016,
+      "warm_ttft_seconds": 0.1174785839393735,
+      "token_identical": true
+    },
+    {
+      "run": 4,
+      "cold_ttft_seconds": 0.3444431251846254,
+      "warm_ttft_seconds": 0.12526145903393626,
+      "token_identical": true
+    },
+    {
+      "run": 5,
+      "cold_ttft_seconds": 0.34464191598817706,
+      "warm_ttft_seconds": 0.11681108409538865,
+      "token_identical": true
+    }
+  ]
+}

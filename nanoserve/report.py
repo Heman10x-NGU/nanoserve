@@ -50,6 +50,7 @@ def write_benchmark_report(
     tpot_percentiles = percentile_summary(tpot) if tpot else None
     report = {
         "model": model_id,
+        "system": system_info(model_id),
         "runs": len(rows),
         "ttft_seconds": asdict(ttft_percentiles),
         "tpot_seconds": asdict(tpot_percentiles) if tpot_percentiles else None,
@@ -63,6 +64,40 @@ def write_benchmark_report(
         json.dumps(system_info(model_id), indent=2) + "\n", encoding="utf-8"
     )
     _write_latency_chart(rows, ttft_percentiles, tpot_percentiles, output_dir)
+    return report
+
+
+def write_cache_report(
+    *,
+    rows: Sequence[dict[str, Any]],
+    model_id: str,
+    prefix_tokens: int,
+    cache_hit_rate: float,
+    output_dir: Path,
+) -> dict[str, Any]:
+    """Write cold-vs-warm TTFT evidence and its comparison chart."""
+    if not rows:
+        raise ValueError("rows must contain at least one cache benchmark result")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    cold = percentile_summary([float(row["cold_ttft_seconds"]) for row in rows])
+    warm = percentile_summary([float(row["warm_ttft_seconds"]) for row in rows])
+    drop = (cold.p50 - warm.p50) / cold.p50 if cold.p50 else 0.0
+    report = {
+        "model": model_id,
+        "system": system_info(model_id),
+        "runs": len(rows),
+        "prefix_tokens": prefix_tokens,
+        "cache_hit_rate": cache_hit_rate,
+        "token_identical": all(bool(row["token_identical"]) for row in rows),
+        "cold_ttft_seconds": asdict(cold),
+        "warm_ttft_seconds": asdict(warm),
+        "p50_ttft_drop_fraction": drop,
+        "requests": list(rows),
+    }
+    (output_dir / "cache_benchmark.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
+    _write_cache_chart(rows, output_dir)
     return report
 
 
@@ -104,3 +139,24 @@ def _write_latency_chart(
     figure.savefig(output_dir / "benchmark.png", dpi=160)
     plt.close(figure)
 
+
+def _write_cache_chart(rows: Sequence[dict[str, Any]], output_dir: Path) -> None:
+    runs = list(range(1, len(rows) + 1))
+    cold_ms = [float(row["cold_ttft_seconds"]) * 1000 for row in rows]
+    warm_ms = [float(row["warm_ttft_seconds"]) * 1000 for row in rows]
+    width = 0.36
+
+    figure, axis = plt.subplots(figsize=(9, 4.8))
+    axis.bar([run - width / 2 for run in runs], cold_ms, width, label="cold")
+    axis.bar([run + width / 2 for run in runs], warm_ms, width, label="warm")
+    axis.set(
+        title="Prefix reuse: cold vs warm time to first token",
+        xlabel="paired run",
+        ylabel="TTFT (milliseconds)",
+        xticks=runs,
+    )
+    axis.grid(axis="y", alpha=0.2)
+    axis.legend()
+    figure.tight_layout()
+    figure.savefig(output_dir / "cache_benchmark.png", dpi=160)
+    plt.close(figure)
