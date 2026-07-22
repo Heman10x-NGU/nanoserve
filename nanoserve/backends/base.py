@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Protocol, Sequence, runtime_checkable
 
 DEFAULT_MODEL = "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
+PREFILL_BLOCK_SIZE = 64
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,4 +57,3 @@ class Backend(Protocol):
         stream: bool = False,
         max_tokens: int = 64,
     ) -> GenerationResult | Iterator[TokenEvent]: ...
-

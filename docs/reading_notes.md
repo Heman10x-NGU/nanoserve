@@ -33,9 +33,12 @@ the small set of design invariants that make reuse correct.
    prefix-replay greedy generation produce identical token IDs. The test checks
    the behavior through the backend interface, not internal dictionary state.
 
-For v1, nanoserve uses whole-prompt entries rather than vLLM's paged allocator.
-That is enough to prove the prefix-reuse mechanism on one process while keeping
-the module small. vLLM's block pool, reference counts, duplicate hashes, LRU
+For v1, nanoserve stores complete per-layer cache snapshots only at full 64-token
+prefix-block boundaries rather than implementing vLLM's paged allocator. Cold
+and warm prefills use the same 64-token grouping because changing MLX reduction
+shapes can introduce small floating-point differences that later flip a greedy
+choice. This is enough to prove the prefix-reuse mechanism on one process while
+keeping the module small. vLLM's block pool, reference counts, duplicate hashes, LRU
 eviction, partial blocks, hybrid cache groups, and distributed cache transfer
 remain cited future design, not implied functionality.
 
@@ -89,4 +92,3 @@ sharing an unsafe namespace.
   of the first sampled token. Subsequent timestamps support TPOT.
 - Stream only evaluated token IDs/text pieces. The public implementation calls
   the model directly and never calls `mlx_lm.generate` or `generate_step`.
-

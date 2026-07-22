@@ -12,13 +12,16 @@ from time import perf_counter
 from typing import Any
 
 import mlx.core as mx
+import mlx_lm
 from mlx_lm import load as load_mlx_model
 from mlx_lm.models.cache import make_prompt_cache
+from mlx.utils import tree_map
 
 from nanoserve.backends.base import (
     DEFAULT_MODEL,
     ForwardOutput,
     GenerationResult,
+    PREFILL_BLOCK_SIZE,
     TokenEvent,
 )
 
@@ -31,6 +34,12 @@ class MLXBackend:
         self.tokenizer = tokenizer
         self.model_id = model_id
 
+    @property
+    def cache_namespace(self) -> str:
+        """Identity inputs that must match before a prompt cache is reused."""
+        tokenizer_id = getattr(self.tokenizer, "name_or_path", self.model_id)
+        return f"{self.model_id}:{tokenizer_id}:mlx-lm-{mlx_lm.__version__}:v1"
+
     @classmethod
     def load(cls, model_id: str = DEFAULT_MODEL) -> "MLXBackend":
         """Load and evaluate an MLX model and its tokenizer."""
@@ -40,6 +49,18 @@ class MLXBackend:
     def new_cache(self) -> list[Any]:
         """Create an empty per-layer prompt cache for this model."""
         return make_prompt_cache(self.model)
+
+    def clone_cache(self, cache: Sequence[Any]) -> list[Any]:
+        """Copy cache objects and MLX arrays so future appends cannot alias."""
+        clones = []
+        for entry in cache:
+            state = tree_map(
+                lambda value: mx.array(value) if isinstance(value, mx.array) else value,
+                entry.state,
+            )
+            clones.append(type(entry).from_state(state, entry.meta_state))
+        mx.eval([entry.state for entry in clones])
+        return clones
 
     def encode(
         self, prompt: str | Sequence[int], *, add_special_tokens: bool = True
@@ -61,8 +82,7 @@ class MLXBackend:
         if not token_ids:
             raise ValueError("token_ids must contain at least one token")
         prompt_cache = list(cache) if cache is not None else self.new_cache()
-        inputs = mx.array([list(token_ids)])
-        logits = self.model(inputs, cache=prompt_cache)
+        logits = self._prefill(token_ids, prompt_cache)
         mx.eval(logits, [entry.state for entry in prompt_cache])
         return ForwardOutput(logits=logits, cache=prompt_cache)
 
@@ -107,13 +127,14 @@ class MLXBackend:
         max_tokens: int,
     ) -> Iterator[TokenEvent]:
         """Prefill once, then append one sampled token per model forward pass."""
-        current_ids = list(prompt_ids)
         detokenizer = self.tokenizer.detokenizer
         eos_token_ids = set(self.tokenizer.eos_token_ids)
+        logits = self._prefill(prompt_ids, cache)
+        previous_token: int | None = None
 
         for _ in range(max_tokens):
-            inputs = mx.array([current_ids])
-            logits = self.model(inputs, cache=cache)
+            if previous_token is not None:
+                logits = self.model(mx.array([[previous_token]]), cache=cache)
             next_token = mx.argmax(logits[:, -1, :], axis=-1)
 
             # MLX is lazy. This synchronization point defines when the token is
@@ -130,5 +151,19 @@ class MLXBackend:
                 text=detokenizer.last_segment,
                 timestamp=timestamp,
             )
-            current_ids = [token_id]
+            previous_token = token_id
 
+    def _prefill(self, token_ids: Sequence[int], cache: Sequence[Any]) -> Any:
+        """Process prompt blocks in a stable order shared by cold and warm runs.
+
+        MLX kernels can produce small floating-point differences when the same
+        prefix is grouped into different sequence lengths. Fixed-size blocks,
+        together with block-aligned cache publication, make both paths execute
+        the same reductions and preserve greedy token identity.
+        """
+        logits = None
+        for start in range(0, len(token_ids), PREFILL_BLOCK_SIZE):
+            block = token_ids[start : start + PREFILL_BLOCK_SIZE]
+            logits = self.model(mx.array([list(block)]), cache=cache)
+        assert logits is not None
+        return logits
