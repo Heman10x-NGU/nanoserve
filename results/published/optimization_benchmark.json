@@ -6,7 +6,7 @@
   "mlx_lm": "0.31.3",
   "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
   "before_commit": "89eccd0",
-  "after_runtime_commit": "7f790d7",
+  "after_runtime_commit": "cae3b5a",
   "protocol": {
     "single_request_runs": 10,
     "cache_pair_runs": 5,
@@ -26,30 +26,30 @@
     "cache_warm_ttft_p50_ms": 78.125
   },
   "after": {
-    "ttft_p50_ms": 65.25252107530832,
-    "tpot_p50_ms": 3.730610884245365,
-    "nanoserve_latency_p50_ms": 186.42133381217718,
-    "nanoserve_throughput_p50_tokens_per_second": 171.65417361641974,
-    "mlx_lm_throughput_p50_tokens_per_second": 165.55334862492262,
-    "cache_cold_ttft_p50_ms": 245.9823340177536,
-    "cache_warm_ttft_p50_ms": 80.765750259161
+    "ttft_p50_ms": 63.9448962174356,
+    "tpot_p50_ms": 3.6226088751948647,
+    "nanoserve_latency_p50_ms": 178.9761669933796,
+    "nanoserve_throughput_p50_tokens_per_second": 178.79475539993933,
+    "mlx_lm_throughput_p50_tokens_per_second": 173.49768614886986,
+    "cache_cold_ttft_p50_ms": 240.49579165875912,
+    "cache_warm_ttft_p50_ms": 77.76041608303785
   },
   "relative_change_percent": {
-    "ttft": -7.16,
-    "tpot": -20.9,
-    "nanoserve_latency": -12.34,
-    "nanoserve_throughput": 14.08,
-    "cache_cold_ttft": 1.35,
-    "cache_warm_ttft": 3.38
+    "ttft": -9.02,
+    "tpot": -23.19,
+    "nanoserve_latency": -15.84,
+    "nanoserve_throughput": 18.82,
+    "cache_cold_ttft": -0.91,
+    "cache_warm_ttft": -0.47
   },
   "candidate_probes": {
-    "token_only_eval_decode_throughput_gain_percent": 0.54,
-    "double_buffer_decode_throughput_gain_percent": 25.37,
-    "prefill_64_to_512_isolated_ttft_gain_percent": 7.15,
+    "token_only_eval_decode_throughput_gain_percent": 4.2,
+    "double_buffer_decode_throughput_gain_percent": 29.1,
+    "prefill_64_to_512_isolated_ttft_gain_percent": 6.75,
     "prefill_512_full_cache_cold_ttft_gain_percent": 5.04,
     "prefill_512_full_cache_warm_ttft_regression_percent": 28.93,
-    "deep_clone_p50_ms": 0.512,
-    "copy_on_grow_fork_p50_ms": 0.064
+    "deep_clone_p50_ms": 0.512083,
+    "copy_on_grow_fork_p50_ms": 0.065625
   },
   "decision": {
     "accepted": [

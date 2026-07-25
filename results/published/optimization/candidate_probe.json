@@ -1,0 +1,191 @@
+{
+  "runs": 7,
+  "warmup_runs_per_variant": 1,
+  "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+  "mlx": "0.32.0",
+  "mlx_lm": "0.31.3",
+  "prefill": {
+    "64": {
+      "samples_ms": [
+        190.217375,
+        189.844375,
+        190.732417,
+        190.179834,
+        190.80325,
+        190.779959,
+        190.991041
+      ],
+      "p50_ms": 190.732417,
+      "token_identical_to_64": true,
+      "prompt_tokens": 639
+    },
+    "128": {
+      "samples_ms": [
+        182.412875,
+        182.751,
+        182.897209,
+        182.516042,
+        182.75925,
+        183.506667,
+        183.54675
+      ],
+      "p50_ms": 182.75925,
+      "token_identical_to_64": true,
+      "prompt_tokens": 639
+    },
+    "256": {
+      "samples_ms": [
+        179.468084,
+        180.940125,
+        180.768125,
+        181.174542,
+        181.357959,
+        180.94975,
+        180.689
+      ],
+      "p50_ms": 180.940125,
+      "token_identical_to_64": true,
+      "prompt_tokens": 639
+    },
+    "512": {
+      "samples_ms": [
+        177.459083,
+        177.778083,
+        177.941291,
+        177.857708,
+        177.830334,
+        178.006041,
+        177.957458
+      ],
+      "p50_ms": 177.857708,
+      "token_identical_to_64": true,
+      "prompt_tokens": 639
+    },
+    "1024": {
+      "samples_ms": [
+        227.5545,
+        227.749833,
+        227.829791,
+        227.778125,
+        228.211875,
+        228.345125,
+        229.065875
+      ],
+      "p50_ms": 227.829791,
+      "token_identical_to_64": true,
+      "prompt_tokens": 639
+    },
+    "2048": {
+      "samples_ms": [
+        231.031792,
+        230.249666,
+        229.803375,
+        229.404875,
+        230.530541,
+        229.969167,
+        230.135708
+      ],
+      "p50_ms": 230.135708,
+      "token_identical_to_64": true,
+      "prompt_tokens": 639
+    }
+  },
+  "decode": {
+    "serial_all": {
+      "ttft_samples_ms": [
+        14.096667,
+        14.017917,
+        14.046417,
+        14.093208,
+        14.002208,
+        13.985708,
+        14.007667
+      ],
+      "decode_63_intervals_samples_ms": [
+        296.597208,
+        294.219,
+        296.044625,
+        296.262125,
+        295.877833,
+        301.917875,
+        293.250583
+      ],
+      "ttft_p50_ms": 14.017917,
+      "decode_63_intervals_p50_ms": 296.044625,
+      "tokens_per_second_p50": 212.805755,
+      "token_identical_to_serial_all": true
+    },
+    "serial_token": {
+      "ttft_samples_ms": [
+        14.010125,
+        14.024292,
+        13.98875,
+        14.076209,
+        14.124875,
+        14.127125,
+        14.111084
+      ],
+      "decode_63_intervals_samples_ms": [
+        284.918958,
+        283.192666,
+        284.10725,
+        282.967708,
+        284.109583,
+        284.6925,
+        283.812541
+      ],
+      "ttft_p50_ms": 14.076209,
+      "decode_63_intervals_p50_ms": 284.10725,
+      "tokens_per_second_p50": 221.747245,
+      "token_identical_to_serial_all": true
+    },
+    "double_buffer": {
+      "ttft_samples_ms": [
+        14.192958,
+        14.4865,
+        14.3165,
+        14.294333,
+        14.358958,
+        14.3135,
+        14.293042
+      ],
+      "decode_63_intervals_samples_ms": [
+        232.31925,
+        227.550416,
+        228.054459,
+        229.454125,
+        228.146917,
+        229.318042,
+        236.305125
+      ],
+      "ttft_p50_ms": 14.3135,
+      "decode_63_intervals_p50_ms": 229.318042,
+      "tokens_per_second_p50": 274.727621,
+      "token_identical_to_serial_all": true
+    }
+  },
+  "cache_fork": {
+    "deep_clone_samples_ms": [
+      0.699792,
+      0.522375,
+      0.509959,
+      0.498375,
+      0.498375,
+      0.512083,
+      0.517292
+    ],
+    "copy_on_grow_fork_samples_ms": [
+      0.074458,
+      0.065459,
+      0.06625,
+      0.063625,
+      0.064167,
+      0.065625,
+      0.06625
+    ],
+    "deep_clone_p50_ms": 0.512083,
+    "copy_on_grow_fork_p50_ms": 0.065625,
+    "source_offsets_unchanged": true,
+    "two_forks_token_identical": true
+  }
+}

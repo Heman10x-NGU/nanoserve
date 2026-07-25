@@ -1,0 +1,114 @@
+{
+  "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+  "system": {
+    "captured_at": "2026-07-25T06:31:47.272594+00:00",
+    "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+    "platform": "macOS-26.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "chip": "Apple M4",
+    "python": "3.11.15"
+  },
+  "runs": 10,
+  "ttft_seconds": {
+    "p50": 0.06593768741004169,
+    "p95": 0.07169967950321733,
+    "p99": 0.0752700695116073
+  },
+  "tpot_seconds": {
+    "p50": 0.0037192150710090516,
+    "p95": 0.003780594492150891,
+    "p99": 0.0038053038451940783
+  },
+  "requests": [
+    {
+      "run": 1,
+      "prompt_id": 0,
+      "prompt_tokens": 16,
+      "output_tokens": 32,
+      "ttft_seconds": 0.07616266701370478,
+      "tpot_seconds": 0.003697712349915697,
+      "tokens_per_second": 167.7221369545489
+    },
+    {
+      "run": 2,
+      "prompt_id": 1,
+      "prompt_tokens": 17,
+      "output_tokens": 32,
+      "ttft_seconds": 0.06624491699039936,
+      "tpot_seconds": 0.003731091386608539,
+      "tokens_per_second": 175.9123736727967
+    },
+    {
+      "run": 3,
+      "prompt_id": 2,
+      "prompt_tokens": 15,
+      "output_tokens": 32,
+      "ttft_seconds": 0.0657141674309969,
+      "tpot_seconds": 0.003699395159680036,
+      "tokens_per_second": 177.38809812669075
+    },
+    {
+      "run": 4,
+      "prompt_id": 0,
+      "prompt_tokens": 16,
+      "output_tokens": 32,
+      "ttft_seconds": 0.06517291720956564,
+      "tpot_seconds": 0.0038114811834548752,
+      "tokens_per_second": 174.54973841178082
+    },
+    {
+      "run": 5,
+      "prompt_id": 1,
+      "prompt_tokens": 17,
+      "output_tokens": 32,
+      "ttft_seconds": 0.06607641698792577,
+      "tpot_seconds": 0.003702732524083507,
+      "tokens_per_second": 176.93133313478526
+    },
+    {
+      "run": 6,
+      "prompt_id": 2,
+      "prompt_tokens": 15,
+      "output_tokens": 32,
+      "ttft_seconds": 0.06584724970161915,
+      "tpot_seconds": 0.0037242701697734093,
+      "tokens_per_second": 176.50339875909359
+    },
+    {
+      "run": 7,
+      "prompt_id": 0,
+      "prompt_tokens": 16,
+      "output_tokens": 32,
+      "ttft_seconds": 0.0659880000166595,
+      "tpot_seconds": 0.0037141599722446935,
+      "tokens_per_second": 176.6716569916902
+    },
+    {
+      "run": 8,
+      "prompt_id": 1,
+      "prompt_tokens": 17,
+      "output_tokens": 32,
+      "ttft_seconds": 0.06588737480342388,
+      "tpot_seconds": 0.003727420683830015,
+      "tokens_per_second": 176.36935481720064
+    },
+    {
+      "run": 9,
+      "prompt_id": 2,
+      "prompt_tokens": 15,
+      "output_tokens": 32,
+      "ttft_seconds": 0.06522187497466803,
+      "tpot_seconds": 0.003742844091668244,
+      "tokens_per_second": 176.55168340550114
+    },
+    {
+      "run": 10,
+      "prompt_id": 0,
+      "prompt_tokens": 16,
+      "output_tokens": 32,
+      "ttft_seconds": 0.0662145409733057,
+      "tpot_seconds": 0.0037045497447252274,
+      "tokens_per_second": 176.74130484798712
+    }
+  ]
+}

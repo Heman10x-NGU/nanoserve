@@ -1,0 +1,58 @@
+{
+  "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+  "system": {
+    "captured_at": "2026-07-25T06:10:07.632280+00:00",
+    "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+    "platform": "macOS-26.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "chip": "Apple M4",
+    "python": "3.11.15"
+  },
+  "runs": 5,
+  "prefix_tokens": 576,
+  "cache_hit_rate": 1.0,
+  "token_identical": true,
+  "cold_ttft_seconds": {
+    "p50": 0.2427050000987947,
+    "p95": 0.24518698286265134,
+    "p99": 0.24560316283255815
+  },
+  "warm_ttft_seconds": {
+    "p50": 0.078125,
+    "p95": 0.08376880865544081,
+    "p99": 0.08475562881678343
+  },
+  "p50_ttft_drop_fraction": 0.6781071672680881,
+  "requests": [
+    {
+      "run": 1,
+      "cold_ttft_seconds": 0.24570720782503486,
+      "warm_ttft_seconds": 0.08500233385711908,
+      "token_identical": true
+    },
+    {
+      "run": 2,
+      "cold_ttft_seconds": 0.2427050000987947,
+      "warm_ttft_seconds": 0.07692012516781688,
+      "token_identical": true
+    },
+    {
+      "run": 3,
+      "cold_ttft_seconds": 0.24183737486600876,
+      "warm_ttft_seconds": 0.078125,
+      "token_identical": true
+    },
+    {
+      "run": 4,
+      "cold_ttft_seconds": 0.2415104159153998,
+      "warm_ttft_seconds": 0.0788347078487277,
+      "token_identical": true
+    },
+    {
+      "run": 5,
+      "cold_ttft_seconds": 0.2431060830131173,
+      "warm_ttft_seconds": 0.0776287498883903,
+      "token_identical": true
+    }
+  ]
+}

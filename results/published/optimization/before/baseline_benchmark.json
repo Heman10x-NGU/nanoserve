@@ -1,7 +1,7 @@
 {
   "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
   "system": {
-    "captured_at": "2026-07-25T06:42:10.138112+00:00",
+    "captured_at": "2026-07-25T06:10:18.551836+00:00",
     "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
     "platform": "macOS-26.2-arm64-arm-64bit",
     "machine": "arm64",
@@ -13,27 +13,27 @@
     "nanoserve": {
       "runs": 5,
       "latency_seconds": {
-        "p50": 0.1789761669933796,
-        "p95": 0.17989140059798955,
-        "p99": 0.18003594737499953
+        "p50": 0.21266449987888336,
+        "p95": 0.22040963312610984,
+        "p99": 0.2212994265370071
       },
       "tokens_per_second": {
-        "p50": 178.79475539993933,
-        "p95": 180.41731830687564,
-        "p99": 180.46733285901485
+        "p50": 150.47175254085488,
+        "p95": 151.8586982790416,
+        "p99": 151.94420341047004
       }
     },
     "mlx_lm.generate": {
       "runs": 5,
       "latency_seconds": {
-        "p50": 0.18444050010293722,
-        "p95": 0.18611618354916573,
-        "p99": 0.18618193686008452
+        "p50": 0.1917351670563221,
+        "p95": 0.19418011670932173,
+        "p99": 0.19459462327882648
       },
       "tokens_per_second": {
-        "p50": 173.49768614886986,
-        "p95": 174.0373540231693,
-        "p99": 174.12644042799144
+        "p50": 166.89687390837392,
+        "p95": 167.95958106184855,
+        "p99": 168.1531501988007
       }
     }
   },
@@ -42,81 +42,81 @@
       "implementation": "nanoserve",
       "run": 1,
       "prompt_id": 0,
-      "latency_seconds": 0.18007208406925201,
+      "latency_seconds": 0.21596066607162356,
       "output_tokens": 32,
-      "tokens_per_second": 177.70661213480184
+      "tokens_per_second": 148.17513106477995
     },
     {
       "implementation": "mlx_lm.generate",
       "run": 1,
       "prompt_id": 0,
-      "latency_seconds": 0.18375100009143353,
+      "latency_seconds": 0.1916262498125434,
       "output_tokens": 32,
-      "tokens_per_second": 174.14871202919696
+      "tokens_per_second": 166.99173537708796
     },
     {
       "implementation": "mlx_lm.generate",
       "run": 2,
       "prompt_id": 1,
-      "latency_seconds": 0.18444050010293722,
+      "latency_seconds": 0.19210758386179805,
       "output_tokens": 32,
-      "tokens_per_second": 173.49768614886986
+      "tokens_per_second": 166.5733301972126
     },
     {
       "implementation": "nanoserve",
       "run": 2,
       "prompt_id": 1,
-      "latency_seconds": 0.17916866671293974,
+      "latency_seconds": 0.2105740001425147,
       "output_tokens": 32,
-      "tokens_per_second": 178.60265741258056
+      "tokens_per_second": 151.96557969332716
     },
     {
       "implementation": "nanoserve",
       "run": 3,
       "prompt_id": 2,
-      "latency_seconds": 0.17761275032535195,
+      "latency_seconds": 0.2113171247765422,
       "output_tokens": 32,
-      "tokens_per_second": 180.16724554617974
+      "tokens_per_second": 151.43117262189932
     },
     {
       "implementation": "mlx_lm.generate",
       "run": 3,
       "prompt_id": 2,
-      "latency_seconds": 0.18578741699457169,
+      "latency_seconds": 0.1917351670563221,
       "output_tokens": 32,
-      "tokens_per_second": 172.23986703542454
+      "tokens_per_second": 166.89687390837392
     },
     {
       "implementation": "mlx_lm.generate",
       "run": 4,
       "prompt_id": 0,
-      "latency_seconds": 0.18434037500992417,
+      "latency_seconds": 0.19469824992120266,
       "output_tokens": 32,
-      "tokens_per_second": 173.59192199905877
+      "tokens_per_second": 164.3568959297317
     },
     {
       "implementation": "nanoserve",
       "run": 4,
       "prompt_id": 0,
-      "latency_seconds": 0.17730512516573071,
+      "latency_seconds": 0.2215218748897314,
       "output_tokens": 32,
-      "tokens_per_second": 180.47983649704963
+      "tokens_per_second": 144.45525985155587
     },
     {
       "implementation": "nanoserve",
       "run": 5,
       "prompt_id": 1,
-      "latency_seconds": 0.1789761669933796,
+      "latency_seconds": 0.21266449987888336,
       "output_tokens": 32,
-      "tokens_per_second": 178.79475539993933
+      "tokens_per_second": 150.47175254085488
     },
     {
       "implementation": "mlx_lm.generate",
       "run": 5,
       "prompt_id": 1,
-      "latency_seconds": 0.18619837518781424,
+      "latency_seconds": 0.190247958060354,
       "output_tokens": 32,
-      "tokens_per_second": 171.85971664748578
+      "tokens_per_second": 168.2015424830387
     }
   ]
 }
