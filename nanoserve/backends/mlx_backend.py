@@ -84,7 +84,7 @@ class MLXBackend:
         cache = [BatchKVCache(left_padding) for _ in self.model.layers]
         logits = self.model(mx.array(padded), cache=cache)
         next_tokens = mx.argmax(logits[:, -1, :], axis=-1)
-        mx.eval(next_tokens, [entry.state for entry in cache])
+        mx.eval(next_tokens)
         self.batch_forward_count += 1
         self.batch_token_slots += len(prompts)
         return [int(token) for token in next_tokens.tolist()], cache
@@ -97,7 +97,7 @@ class MLXBackend:
             raise ValueError("token_ids must contain at least one active request")
         logits = self.model(mx.array([[token] for token in token_ids]), cache=cache)
         next_tokens = mx.argmax(logits[:, -1, :], axis=-1)
-        mx.eval(next_tokens, [entry.state for entry in cache])
+        mx.eval(next_tokens)
         self.batch_forward_count += 1
         self.batch_token_slots += len(token_ids)
         return [int(token) for token in next_tokens.tolist()], cache
@@ -199,17 +199,22 @@ class MLXBackend:
         detokenizer = self.tokenizer.detokenizer
         eos_token_ids = set(self.tokenizer.eos_token_ids)
         logits = self._prefill(prompt_ids, cache)
-        previous_token: int | None = None
+        token = mx.argmax(logits[:, -1, :], axis=-1)
+        mx.async_eval(token)
 
         for token_index in range(max_tokens):
-            if previous_token is not None:
-                logits = self.model(mx.array([[previous_token]]), cache=cache)
-            next_token = mx.argmax(logits[:, -1, :], axis=-1)
+            # Queue the next one-token forward before yielding the current
+            # token. MLX executes both on the generation stream, allowing CPU
+            # detokenization and response handling to overlap the next step.
+            if token_index + 1 < max_tokens:
+                next_logits = self.model(token[None], cache=cache)
+                next_token = mx.argmax(next_logits[:, -1, :], axis=-1)
+                mx.async_eval(next_token)
 
-            # MLX is lazy. This synchronization point defines when the token is
-            # genuinely available and therefore the TTFT/TPOT timestamp.
-            mx.eval(next_token, [entry.state for entry in cache])
-            token_id = int(next_token.item())
+            # ``item()`` synchronizes the current token's dependency graph,
+            # including its KV-cache writes. The timestamp therefore still
+            # measures materialized token availability.
+            token_id = int(token.item())
             timestamp = perf_counter()
             if token_id in eos_token_ids:
                 detokenizer.finalize()
@@ -232,7 +237,8 @@ class MLXBackend:
                 timestamp=timestamp,
                 finished=finished,
             )
-            previous_token = token_id
+            if token_index + 1 < max_tokens:
+                token = next_token
 
     def _prefill(self, token_ids: Sequence[int], cache: Sequence[Any]) -> Any:
         """Process prompt blocks in a stable order shared by cold and warm runs.
