@@ -3,8 +3,8 @@
 ![Cold versus warm prefix-cache TTFT](results/published/cache_benchmark.png)
 
 On an M4 Mac with the default 0.5B 4-bit model, reusing a verified 576-token
-prefix reduced median time to first token from **245.98 ms to 80.77 ms
-(67.2%)**. Warm timing includes hash lookup and synchronized KV-array cloning.
+prefix reduced median time to first token from **240.50 ms to 77.76 ms
+(67.7%)**. Warm timing includes hash lookup and synchronized KV-array cloning.
 Five paired runs produced token-identical greedy output, and all five warm
 lookups hit the prepared prefix. The raw evidence is committed in
 [`results/published/cache_benchmark.json`](results/published/cache_benchmark.json).
@@ -55,10 +55,10 @@ system metadata, percentile summaries, and per-request rows are committed under
 
 | Experiment | p50 | p95 | p99 |
 |---|---:|---:|---:|
-| single-request TTFT, 10 runs | 65.25 ms | 75.45 ms | 81.86 ms |
-| single-request TPOT, 10 runs | 3.73 ms | 3.79 ms | 3.80 ms |
-| prefix reuse cold TTFT, 5 runs | 245.98 ms | 246.93 ms | 246.99 ms |
-| prefix reuse warm TTFT, 5 runs | 80.77 ms | 82.40 ms | 82.51 ms |
+| single-request TTFT, 10 runs | 63.94 ms | 78.11 ms | 78.91 ms |
+| single-request TPOT, 10 runs | 3.62 ms | 3.69 ms | 3.71 ms |
+| prefix reuse cold TTFT, 5 runs | 240.50 ms | 241.37 ms | 241.54 ms |
+| prefix reuse warm TTFT, 5 runs | 77.76 ms | 78.89 ms | 79.08 ms |
 
 Continuous batching uses one model forward for all active request rows:
 
@@ -74,13 +74,13 @@ greedy sampling, and requested token limit:
 
 | implementation | latency p50 | throughput p50 |
 |---|---:|---:|
-| nanoserve | 186.42 ms | 171.65 tok/s |
-| `mlx_lm.generate` | 193.29 ms | 165.55 tok/s |
+| nanoserve | 178.98 ms | 178.79 tok/s |
+| `mlx_lm.generate` | 184.44 ms | 173.50 tok/s |
 
 Pair order alternates to reduce thermal and order bias. The public
 `mlx_lm.generate` API returns text, so the benchmark re-tokenizes its output;
 all five rows produced the requested 32 tokens. `mlx_lm.generate` was faster in
-the original run; nanoserve was 3.69% faster in this later paired run. This is
+the original run; nanoserve was 3.05% faster in this later paired run. This is
 not a universal speed claim. Nanoserve uses fixed 64-token prefill blocks to
 preserve cold/warm numerical identity. Decode is double-buffered with
 `mx.async_eval()`, while scalar token access remains the timestamp
@@ -88,8 +88,10 @@ synchronization boundary. During autoregressive decode, each step reads the
 model weights to produce one new token. Batching amortizes those reads across
 active requests.
 
-The measured optimization reduced TPOT by 20.90% and increased nanoserve's
-median throughput by 14.08%. The complete before/after methodology, rejected
+The direct-generation benchmark measured 23.19% lower TPOT and 18.82% higher
+median nanoserve throughput. The continuously batched server uses a separate
+scheduler loop, so these percentages are not server-throughput claims. The
+complete before/after methodology, rejected
 experiments, and limitations are in
 [`docs/performance_optimization.md`](docs/performance_optimization.md); its
 compact evidence is
