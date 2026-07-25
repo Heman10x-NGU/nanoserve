@@ -14,7 +14,13 @@ from typing import Any
 import mlx.core as mx
 import mlx_lm
 from mlx_lm import load as load_mlx_model
-from mlx_lm.models.cache import BatchKVCache, KVCache, make_prompt_cache
+from mlx_lm.models.cache import (
+    BatchKVCache,
+    KVCache,
+    can_trim_prompt_cache,
+    make_prompt_cache,
+    trim_prompt_cache,
+)
 from mlx.utils import tree_map
 
 from nanoserve.backends.base import (
@@ -201,44 +207,68 @@ class MLXBackend:
         logits = self._prefill(prompt_ids, cache)
         token = mx.argmax(logits[:, -1, :], axis=-1)
         mx.async_eval(token)
+        prompt_cache = list(cache)
+        can_read_ahead = can_trim_prompt_cache(prompt_cache)
+        read_ahead = False
 
-        for token_index in range(max_tokens):
-            # Queue the next one-token forward before yielding the current
-            # token. MLX executes both on the generation stream, allowing CPU
-            # detokenization and response handling to overlap the next step.
-            if token_index + 1 < max_tokens:
-                next_logits = self.model(token[None], cache=cache)
-                next_token = mx.argmax(next_logits[:, -1, :], axis=-1)
-                mx.async_eval(next_token)
-
-            # ``item()`` synchronizes the current token's dependency graph,
-            # including its KV-cache writes. The timestamp therefore still
-            # measures materialized token availability.
-            token_id = int(token.item())
-            timestamp = perf_counter()
-            if token_id in eos_token_ids:
-                detokenizer.finalize()
-                final_text = detokenizer.last_segment
-                yield TokenEvent(
-                    token_id=None,
-                    text=final_text,
-                    timestamp=timestamp,
-                    finished=True,
-                )
+        def rewind_read_ahead() -> None:
+            nonlocal read_ahead
+            if not read_ahead:
                 return
+            if trim_prompt_cache(prompt_cache, 1) != 1:
+                raise RuntimeError("failed to rewind speculative cache state")
+            read_ahead = False
 
-            detokenizer.add_token(token_id)
-            finished = token_index + 1 == max_tokens
-            if finished:
-                detokenizer.finalize()
-            yield TokenEvent(
-                token_id=token_id,
-                text=detokenizer.last_segment,
-                timestamp=timestamp,
-                finished=finished,
-            )
-            if token_index + 1 < max_tokens:
-                token = next_token
+        try:
+            for token_index in range(max_tokens):
+                has_next = token_index + 1 < max_tokens
+                # Queue the next one-token forward before yielding the current
+                # token. Cache types that cannot rewind retain serial request
+                # ownership semantics instead.
+                if has_next and can_read_ahead:
+                    next_logits = self.model(token[None], cache=cache)
+                    next_token = mx.argmax(next_logits[:, -1, :], axis=-1)
+                    mx.async_eval(next_token)
+                    read_ahead = True
+
+                # ``item()`` synchronizes the current token's dependency
+                # graph. The timestamp therefore still measures materialized
+                # token availability.
+                token_id = int(token.item())
+                timestamp = perf_counter()
+                if token_id in eos_token_ids:
+                    rewind_read_ahead()
+                    detokenizer.finalize()
+                    final_text = detokenizer.last_segment
+                    yield TokenEvent(
+                        token_id=None,
+                        text=final_text,
+                        timestamp=timestamp,
+                        finished=True,
+                    )
+                    return
+
+                detokenizer.add_token(token_id)
+                finished = token_index + 1 == max_tokens
+                if finished:
+                    detokenizer.finalize()
+                yield TokenEvent(
+                    token_id=token_id,
+                    text=detokenizer.last_segment,
+                    timestamp=timestamp,
+                    finished=finished,
+                )
+                if not has_next:
+                    continue
+                if can_read_ahead:
+                    token = next_token
+                    read_ahead = False
+                else:
+                    next_logits = self.model(token[None], cache=cache)
+                    token = mx.argmax(next_logits[:, -1, :], axis=-1)
+                    mx.async_eval(token)
+        finally:
+            rewind_read_ahead()
 
     def _prefill(self, token_ids: Sequence[int], cache: Sequence[Any]) -> Any:
         """Process prompt blocks in a stable order shared by cold and warm runs.

@@ -174,18 +174,27 @@ def test_mlx_backend_stream_text_matches_completed_generation() -> None:
 
 @pytest.mark.integration
 def test_mlx_backend_stream_emits_terminal_event_on_immediate_eos() -> None:
-    """EOS is explicit even when the detokenizer has no buffered text."""
+    """EOS is explicit and speculative read-ahead is removed from the cache."""
     from nanoserve.backends.base import DEFAULT_MODEL
     from nanoserve.backends.mlx_backend import MLXBackend
 
     backend = MLXBackend.load(DEFAULT_MODEL)
     prompt = "The capital of France is"
+    prompt_ids = backend.encode(prompt)
     first = backend.generate(prompt, max_tokens=1)
     predicted_token = first.token_ids[0]
     eos_token_ids = backend.tokenizer.eos_token_ids
+    cache = backend.new_cache()
     eos_token_ids.add(predicted_token)
     try:
-        events = list(backend.generate(prompt, stream=True, max_tokens=2))
+        events = list(
+            backend.generate(
+                prompt_ids,
+                cache=cache,
+                stream=True,
+                max_tokens=2,
+            )
+        )
     finally:
         eos_token_ids.remove(predicted_token)
 
@@ -193,3 +202,26 @@ def test_mlx_backend_stream_emits_terminal_event_on_immediate_eos() -> None:
     assert events[0].token_id is None
     assert events[0].text == ""
     assert events[0].finished is True
+    assert all(entry.offset == len(prompt_ids) for entry in cache)
+
+
+@pytest.mark.integration
+def test_closing_stream_rewinds_unconsumed_read_ahead() -> None:
+    """A canceled stream must not leave caller-owned cache state one token ahead."""
+    from nanoserve.backends.base import DEFAULT_MODEL
+    from nanoserve.backends.mlx_backend import MLXBackend
+
+    backend = MLXBackend.load(DEFAULT_MODEL)
+    prompt_ids = backend.encode("Explain cache ownership in one sentence.")
+    cache = backend.new_cache()
+    stream = backend.generate(
+        prompt_ids,
+        cache=cache,
+        stream=True,
+        max_tokens=4,
+    )
+
+    next(stream)
+    stream.close()
+
+    assert all(entry.offset == len(prompt_ids) for entry in cache)
