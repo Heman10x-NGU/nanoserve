@@ -8,6 +8,11 @@ build/
 *.egg-info/
 .DS_Store
 
+# Local secrets and environment configuration.
+.env
+.env.*
+!.env.example
+
 # Local benchmark output. Curated evidence is committed below.
 results/*
 !results/published/
