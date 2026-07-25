@@ -1,7 +1,7 @@
 {
   "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
   "system": {
-    "captured_at": "2026-07-22T20:58:22.719919+00:00",
+    "captured_at": "2026-07-25T06:32:41.798274+00:00",
     "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
     "platform": "macOS-26.2-arm64-arm-64bit",
     "machine": "arm64",
@@ -10,14 +10,14 @@
   },
   "runs": 10,
   "ttft_seconds": {
-    "p50": 0.07661387487314641,
-    "p95": 0.08583679592702537,
-    "p99": 0.08995372575242072
+    "p50": 0.06525252107530832,
+    "p95": 0.07544813335407523,
+    "p99": 0.08186429298017174
   },
   "tpot_seconds": {
-    "p50": 0.0064403850870627544,
-    "p95": 0.006738787749031138,
-    "p99": 0.006740830656771939
+    "p50": 0.003730610884245365,
+    "p95": 0.003785002814425576,
+    "p99": 0.003798397333631592
   },
   "requests": [
     {
@@ -25,90 +25,90 @@
       "prompt_id": 0,
       "prompt_tokens": 16,
       "output_tokens": 32,
-      "ttft_seconds": 0.09098295820876956,
-      "tpot_seconds": 0.00638703896754211,
-      "tokens_per_second": 110.73385999684177
+      "ttft_seconds": 0.08346833288669586,
+      "tpot_seconds": 0.003736872331149155,
+      "tokens_per_second": 160.5528032484079
     },
     {
       "run": 2,
       "prompt_id": 1,
       "prompt_tokens": 17,
       "output_tokens": 32,
-      "ttft_seconds": 0.0782157089561224,
-      "tpot_seconds": 0.006219151880471937,
-      "tokens_per_second": 118.07707763303252
+      "ttft_seconds": 0.06519662542268634,
+      "tpot_seconds": 0.0038017459634330964,
+      "tokens_per_second": 174.81490761146216
     },
     {
       "run": 3,
       "prompt_id": 2,
       "prompt_tokens": 15,
       "output_tokens": 32,
-      "ttft_seconds": 0.07619529217481613,
-      "tpot_seconds": 0.006464432774772567,
-      "tokens_per_second": 115.69357778477026
+      "ttft_seconds": 0.06524008419364691,
+      "tpot_seconds": 0.003764538965638607,
+      "tokens_per_second": 175.8813932029555
     },
     {
       "run": 4,
       "prompt_id": 0,
       "prompt_tokens": 16,
       "output_tokens": 32,
-      "ttft_seconds": 0.07274345913901925,
-      "tpot_seconds": 0.006735666639982692,
-      "tokens_per_second": 113.65689736185679
+      "ttft_seconds": 0.06526495795696974,
+      "tpot_seconds": 0.00370892338574894,
+      "tokens_per_second": 177.53949717062616
     },
     {
       "run": 5,
       "prompt_id": 1,
       "prompt_tokens": 17,
       "output_tokens": 32,
-      "ttft_seconds": 0.07570929219946265,
-      "tpot_seconds": 0.006547620970635644,
-      "tokens_per_second": 114.82475817420193
+      "ttft_seconds": 0.06465570814907551,
+      "tpot_seconds": 0.0037288386975565264,
+      "tokens_per_second": 177.53149447677023
     },
     {
       "run": 6,
       "prompt_id": 2,
       "prompt_tokens": 15,
       "output_tokens": 32,
-      "ttft_seconds": 0.07446116674691439,
-      "tpot_seconds": 0.006461278234999026,
-      "tokens_per_second": 116.46494306322501
+      "ttft_seconds": 0.06564566725865006,
+      "tpot_seconds": 0.003713016127867083,
+      "tokens_per_second": 177.04092633856035
     },
     {
       "run": 7,
       "prompt_id": 0,
       "prompt_tokens": 16,
       "output_tokens": 32,
-      "ttft_seconds": 0.0770324575714767,
-      "tpot_seconds": 0.006289240618747088,
-      "tokens_per_second": 117.64752735799206
+      "ttft_seconds": 0.06549133406952024,
+      "tpot_seconds": 0.0037080873585035724,
+      "tokens_per_second": 177.34226243972088
     },
     {
       "run": 8,
       "prompt_id": 1,
       "prompt_tokens": 17,
       "output_tokens": 32,
-      "ttft_seconds": 0.07954704202711582,
-      "tpot_seconds": 0.006741341383707139,
-      "tokens_per_second": 110.90753996643026
+      "ttft_seconds": 0.06540570920333266,
+      "tpot_seconds": 0.0037063118070364,
+      "tokens_per_second": 177.48062077005764
     },
     {
       "run": 9,
       "prompt_id": 2,
       "prompt_tokens": 15,
       "output_tokens": 32,
-      "ttft_seconds": 0.07716679200530052,
-      "tpot_seconds": 0.006228883059755448,
-      "tokens_per_second": 118.40355004941009
+      "ttft_seconds": 0.06468095863237977,
+      "tpot_seconds": 0.0037323830709342035,
+      "tokens_per_second": 177.39850585177254
     },
     {
       "run": 10,
       "prompt_id": 0,
       "prompt_tokens": 16,
       "output_tokens": 32,
-      "ttft_seconds": 0.0733830826357007,
-      "tpot_seconds": 0.0064194919391264834,
-      "tokens_per_second": 117.47976558635295
+      "ttft_seconds": 0.0644824169576168,
+      "tpot_seconds": 0.0037426881702436556,
+      "tokens_per_second": 177.27967091524297
     }
   ]
 }
