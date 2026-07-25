@@ -82,7 +82,11 @@ def test_hit_rate_counts_successful_and_failed_lookups() -> None:
 @pytest.mark.integration
 def test_prefix_reuse_token_identical() -> None:
     """Load-bearing gate: warm greedy output must equal cold output exactly."""
-    from nanoserve.backends.base import DEFAULT_MODEL, GenerationResult
+    from nanoserve.backends.base import (
+        DEFAULT_MODEL,
+        PREFILL_BLOCK_SIZE,
+        GenerationResult,
+    )
     from nanoserve.backends.mlx_backend import MLXBackend
 
     backend = MLXBackend.load(DEFAULT_MODEL)
@@ -91,14 +95,16 @@ def test_prefix_reuse_token_identical() -> None:
         "The cache is valid only when every identity input matches. "
     )
     full_ids = backend.encode(context * 12 + "Question: what must warm decode preserve?")
-    split_at = ((len(full_ids) - 10) // 64) * 64
-    assert split_at >= 64
+    split_at = (
+        (len(full_ids) - 10) // PREFILL_BLOCK_SIZE
+    ) * PREFILL_BLOCK_SIZE
+    assert split_at >= PREFILL_BLOCK_SIZE
     prefix_ids, suffix_ids = full_ids[:split_at], full_ids[split_at:]
 
     prefix_state = backend.forward_logits(prefix_ids).cache
     cache = PrefixCache(
         namespace=backend.cache_namespace,
-        block_size=64,
+        block_size=PREFILL_BLOCK_SIZE,
         clone=backend.clone_cache,
     )
     cache.put(prefix_ids, prefix_state)
@@ -114,6 +120,36 @@ def test_prefix_reuse_token_identical() -> None:
     assert isinstance(cold, GenerationResult)
     assert isinstance(warm, GenerationResult)
     assert warm.token_ids == cold.token_ids
+
+
+@pytest.mark.integration
+def test_decode_matches_serial_greedy_reference() -> None:
+    """Pipelining must preserve the exact tokens from serial greedy decode."""
+    import mlx.core as mx
+
+    from nanoserve.backends.base import DEFAULT_MODEL, GenerationResult
+    from nanoserve.backends.mlx_backend import MLXBackend
+
+    backend = MLXBackend.load(DEFAULT_MODEL)
+    prompt_ids = backend.encode(
+        "Explain why an evaluated token is the synchronization boundary."
+    )
+    cache = backend.new_cache()
+    logits = backend._prefill(prompt_ids, cache)
+    expected = []
+    previous_token = None
+    for _ in range(12):
+        if previous_token is not None:
+            logits = backend.model(mx.array([[previous_token]]), cache=cache)
+        next_token = mx.argmax(logits[:, -1, :], axis=-1)
+        mx.eval(next_token, [entry.state for entry in cache])
+        previous_token = int(next_token.item())
+        expected.append(previous_token)
+
+    actual = backend.generate(prompt_ids, max_tokens=12)
+
+    assert isinstance(actual, GenerationResult)
+    assert actual.token_ids == tuple(expected)
 
 
 @pytest.mark.integration
